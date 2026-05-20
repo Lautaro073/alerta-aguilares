@@ -33,7 +33,7 @@ export default function FAB({ onClick, reportCount }: FABProps) {
 
         {/* Texto del FAB (oculto en móviles extremadamente angostos, visible en el resto) */}
         <span className="font-outfit text-xs md:text-sm font-extrabold tracking-wide uppercase text-white drop-shadow-sm select-none">
-          Marcar Problema
+          Crear Alerta
         </span>
 
         {/* Contador de reportes activos opcional (burbuja flotante si existe) */}

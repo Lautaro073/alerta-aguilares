@@ -6,6 +6,7 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
 import AuthModal from '@/components/auth/AuthModal';
 import { Shield, MapPin, Flame, Sparkles, ChevronLeft, ChevronRight, Filter, User, LogOut } from 'lucide-react';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 interface MapControlsProps {
   selectedCategories: CategoryId[];
@@ -87,7 +88,7 @@ export default function MapControls({
       <div className="max-w-4xl mx-auto w-full flex flex-col gap-3 pointer-events-auto">
         
         {/* Barra superior de Marca y Tipo de Vista */}
-        <div className="glass-strong px-3 md:px-4 py-3 shadow-md flex items-center justify-between gap-4 animate-slide-down">
+        <div className="glass-strong px-3 md:px-4 py-3 shadow-md flex items-center justify-between gap-4 animate-slide-down relative z-20">
           {/* Logo / Nombre de marca */}
           <div className="flex items-center gap-2 md:gap-2.5">
             <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/25 flex items-center justify-center text-accent shadow shadow-accent/10">
@@ -148,6 +149,9 @@ export default function MapControls({
                 <span>Calor</span>
               </button>
             </div>
+
+            {/* Campana de notificaciones push */}
+            <NotificationBell />
 
             {/* Botón de Login / Menú de Usuario */}
             {!user ? (
@@ -229,7 +233,7 @@ export default function MapControls({
 
         {/* Barra de Filtros en una sola fila scrollable */}
         {showFilters && (
-          <div className="glass shadow-md px-3 py-2 flex items-center gap-2 animate-slide-down select-none relative group/filters h-12 transition-all duration-300">
+          <div className="glass shadow-md px-3 py-2 flex items-center gap-2 animate-slide-down select-none relative group/filters h-12 transition-all duration-300 z-10">
             {/* Chip de "Todos" (Limpia filtros) */}
             <button
               onClick={clearCategories}

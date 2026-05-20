@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import { adminDb, adminMessaging } from '@/lib/firebase/admin';
 import { GetReportsQuerySchema, CreateReportSchema } from '@/lib/validators/report.schema';
 import { badRequest, tooManyRequests, serverError, forbidden } from '@/lib/server/response';
 import { Report, ReportPrivateMeta } from '@/types/report';
 import { checkRateLimit } from '@/lib/utils/rateLimit';
 import { hashValue } from '@/lib/server/hash';
 import { env } from '@/lib/server/env';
+import { CATEGORIES } from '@/lib/constants/categories';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,13 +47,14 @@ export async function GET(request: NextRequest) {
       category: categoryParams.length > 0 ? categoryParams : undefined,
       view: viewParam || undefined,
       limit: limitParam || undefined,
+      timeframe: searchParams.get('timeframe') || undefined,
     });
 
     if (!parsedQuery.success) {
       return badRequest('Parámetros de consulta inválidos.', parsedQuery.error.format());
     }
 
-    const { category, view, limit } = parsedQuery.data;
+    const { category, view, limit, timeframe } = parsedQuery.data;
 
     // Determinar límites máximos por vista
     const maxAllowedLimit = view === 'heatmap' ? 1000 : 500;
@@ -68,6 +70,13 @@ export async function GET(request: NextRequest) {
 
     // Por defecto filtramos por reportes activos
     query = query.where('status', '==', 'ACTIVE');
+
+    // Filtrar por rango de tiempo (timeframe) si no es 'all'
+    if (timeframe && timeframe !== 'all') {
+      const days = timeframe === '7d' ? 7 : 30;
+      const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      query = query.where('createdAt', '>=', thresholdDate);
+    }
 
     // Ordenar por fecha de creación descendente (los más recientes primero)
     query = query.orderBy('createdAt', 'desc');
@@ -228,6 +237,11 @@ export async function POST(request: NextRequest) {
     
     await batch.commit();
 
+    // Trigger push notifications asynchronously (non-blocking)
+    triggerPushNotifications(newReport).catch((err) => {
+      console.error('[FCM] Failed to trigger notifications asynchronously:', err);
+    });
+
     // 7. Retornar éxito
     return Response.json(
       {
@@ -240,5 +254,84 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     return serverError('POST_REPORTS_ROUTE', error);
+  }
+}
+
+/**
+ * Envía notificaciones push a todos los dispositivos suscritos de forma asíncrona.
+ * Limpia los tokens que hayan expirado o no estén registrados.
+ */
+async function triggerPushNotifications(report: Report) {
+  try {
+    const tokensSnapshot = await adminDb.collection('fcm_tokens').get();
+    if (tokensSnapshot.empty) {
+      return;
+    }
+
+    const tokens = tokensSnapshot.docs
+      .map((doc) => doc.data().token)
+      .filter((token): token is string => typeof token === 'string' && token.length > 0);
+
+    if (tokens.length === 0) {
+      return;
+    }
+
+    const categoryLabel = CATEGORIES[report.category as keyof typeof CATEGORIES]?.label || report.category;
+    const title = `🚨 Nueva Alerta: ${categoryLabel}`;
+    const body = report.title;
+    const url = `/?reportId=${report.id}`;
+
+    const response = await adminMessaging.sendEachForMulticast({
+      tokens,
+      data: {
+        title,
+        body,
+        url,
+      },
+      webpush: {
+        headers: {
+          Urgency: 'high',
+        },
+        notification: {
+          title,
+          body,
+          icon: '/icon-192.png',
+          badge: '/icon-192-maskable.png',
+          tag: 'nuevo-reporte',
+          data: {
+            url,
+          },
+        },
+      },
+    });
+
+    // Detectar tokens fallidos para eliminarlos
+    const tokensToDelete: string[] = [];
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success && resp.error) {
+        const code = resp.error.code;
+        const t = tokens[idx];
+        if (
+          t &&
+          (code === 'messaging/registration-token-not-registered' ||
+            code === 'messaging/invalid-argument')
+        ) {
+          tokensToDelete.push(t);
+        }
+      }
+    });
+
+    if (tokensToDelete.length > 0) {
+      const cleanupBatch = adminDb.batch();
+      tokensToDelete.forEach((token) => {
+        cleanupBatch.delete(adminDb.collection('fcm_tokens').doc(token));
+      });
+      await cleanupBatch.commit();
+      console.log(`[FCM] Se eliminaron ${tokensToDelete.length} tokens inválidos.`);
+    }
+
+    console.log(`[FCM] Éxito: ${response.successCount}, Fallos: ${response.failureCount}`);
+  } catch (error) {
+    console.error('[FCM] Error en triggerPushNotifications:', error);
   }
 }

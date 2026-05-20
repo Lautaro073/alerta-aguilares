@@ -51,6 +51,7 @@ export default function MapViewInner() {
   const { reports, isLoading, isConnected } = useRealtimeReports({
     categories: selectedCategories,
     view: selectedView,
+    timeframe: 'all', // El mapa principal siempre muestra todos los reportes activos en vivo
   });
 
   // 2. Estados locales para interactividad

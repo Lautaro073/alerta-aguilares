@@ -16,14 +16,17 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const categoryParams = searchParams.getAll('category');
   const viewParam = searchParams.get('view');
+  const timeframeParam = searchParams.get('timeframe');
 
   const parsedQuery = GetReportsQuerySchema.safeParse({
     category: categoryParams.length > 0 ? categoryParams : undefined,
     view: viewParam || undefined,
+    timeframe: timeframeParam || undefined,
   });
 
   const view = parsedQuery.success ? parsedQuery.data.view : 'markers';
   const categories = parsedQuery.success ? parsedQuery.data.category : undefined;
+  const timeframe = parsedQuery.success ? parsedQuery.data.timeframe : 'all';
   const maxLimit = view === 'heatmap' ? 1000 : 500;
 
   const encoder = new TextEncoder();
@@ -47,8 +50,16 @@ export async function GET(request: NextRequest) {
         query = query.where('category', 'in', categories);
       }
 
+      query = query.where('status', '==', 'ACTIVE');
+
+      // Filtrar por rango de tiempo (timeframe) si no es 'all'
+      if (timeframe && timeframe !== 'all') {
+        const days = timeframe === '7d' ? 7 : 30;
+        const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+        query = query.where('createdAt', '>=', thresholdDate);
+      }
+
       query = query
-        .where('status', '==', 'ACTIVE')
         .orderBy('createdAt', 'desc')
         .limit(maxLimit);
 

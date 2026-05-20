@@ -39,16 +39,22 @@ export const metadata: Metadata = {
     locale: "es_AR",
     siteName: "Alertas Aguilares",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "CiudadAlerta",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0a0f1d",
+  themeColor: "#080d1a",
 };
 
 import { AuthProvider } from "@/hooks/useAuth";
+import PwaRegister from "@/components/layout/PwaRegister";
 
 export default function RootLayout({
   children,
@@ -64,6 +70,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
+        <PwaRegister />
       </body>
     </html>
   );

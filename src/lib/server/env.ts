@@ -14,6 +14,9 @@ const EnvSchema = z.object({
   // Google Maps (opcional para Street View)
   GOOGLE_MAPS_API_KEY: z.string().optional().or(z.literal('')),
 
+  // FCM VAPID Key (opcional para desarrollo, recomendado para producción)
+  NEXT_PUBLIC_FIREBASE_VAPID_KEY: z.string().optional().or(z.literal('')),
+
   // Cloudinary (almacenamiento de fotos de reportes)
   CLOUDINARY_CLOUD_NAME: z.string().min(1),
   CLOUDINARY_API_KEY: z.string().min(1),

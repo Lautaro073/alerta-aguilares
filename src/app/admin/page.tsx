@@ -25,6 +25,7 @@ import {
   Filter,
   Loader2,
   AlertTriangle,
+  Clock,
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'RESOLVED' | 'DUPLICATE'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [timeframeFilter, setTimeframeFilter] = useState<'all' | '7d' | '30d'>('all');
   
   // Estados de carga para las acciones individuales de moderación
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -189,7 +191,19 @@ export default function AdminDashboard() {
     const matchesStatus = statusFilter === 'ALL' || report.status === statusFilter;
     const matchesCategory = categoryFilter === 'ALL' || report.category === categoryFilter;
 
-    return matchesSearch && matchesStatus && matchesCategory;
+    // Filtro temporal local
+    const now = new Date();
+    const thresholdDate =
+      timeframeFilter === '7d'
+        ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        : timeframeFilter === '30d'
+        ? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        : null;
+
+    const matchesTimeframe =
+      !thresholdDate || new Date(report.createdAt) >= thresholdDate;
+
+    return matchesSearch && matchesStatus && matchesCategory && matchesTimeframe;
   });
 
   return (
@@ -296,6 +310,20 @@ export default function AdminDashboard() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-surface-1 border border-border focus:border-accent rounded-lg py-1.5 pl-9 pr-3 text-xs outline-none text-foreground transition-all placeholder:text-muted/40"
                 />
+              </div>
+
+              {/* Selector de Rango Temporal */}
+              <div className="relative flex items-center">
+                <Clock size={12} className="absolute left-2.5 text-muted pointer-events-none" />
+                <select
+                  value={timeframeFilter}
+                  onChange={(e: any) => setTimeframeFilter(e.target.value)}
+                  className="bg-surface-1 border border-border rounded-lg py-1.5 pl-8 pr-2 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
+                >
+                  <option value="all">Histórico</option>
+                  <option value="7d">Últimos 7 días</option>
+                  <option value="30d">Últimos 30 días</option>
+                </select>
               </div>
 
               {/* Selector de Estado */}

@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { CategoryId } from '@/lib/constants/categories';
 import { Report } from '@/types/report';
+import { TimeframeId } from './useMapFilter';
 
 interface UseRealtimeReportsOptions {
   categories?: CategoryId[];
   view?: 'markers' | 'heatmap';
+  timeframe?: TimeframeId;
 }
 
 type HeatmapPoint = { lat: number; lng: number };
@@ -28,6 +30,7 @@ interface StreamPayload {
 export function useRealtimeReports({
   categories = [],
   view = 'markers',
+  timeframe = 'all',
 }: UseRealtimeReportsOptions = {}) {
   type DataType = typeof view extends 'heatmap' ? HeatmapPoint[] : Report[];
 
@@ -38,8 +41,8 @@ export function useRealtimeReports({
   const [error, setError] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
-  // La key de dependencia: serializar categorías y vista para detectar cambios
-  const filterKey = `${view}:${[...categories].sort().join(',')}`;
+  // La key de dependencia: serializar categorías, vista y timeframe para detectar cambios
+  const filterKey = `${view}:${timeframe}:${[...categories].sort().join(',')}`;
 
   useEffect(() => {
     // Cerrar conexión anterior sin limpiar `reports` (mantener datos visibles)
@@ -54,6 +57,9 @@ export function useRealtimeReports({
     // Construir URL del stream con los mismos filtros que el GET
     const params = new URLSearchParams({ view });
     categories.forEach((c) => params.append('category', c));
+    if (timeframe && timeframe !== 'all') {
+      params.append('timeframe', timeframe);
+    }
     const url = `/api/reports/stream?${params.toString()}`;
 
     const es = new EventSource(url);

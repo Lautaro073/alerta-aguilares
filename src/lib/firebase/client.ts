@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
@@ -16,24 +17,43 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Inicializar Firebase App Check (solo en el cliente)
+if (typeof window !== 'undefined') {
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
+  if (process.env.NODE_ENV !== 'production') {
+    // Modo debug: genera un token en la consola del navegador que se registra
+    // manualmente en Firebase Console → App Check → Debug tokens
+    (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider('6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'), // site key de prueba
+      isTokenAutoRefreshEnabled: true,
+    });
+  } else if (siteKey) {
+    // Producción: usar la site key real de reCAPTCHA v3
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+}
+
 // Conectar emuladores locales si estamos en desarrollo y está explícitamente configurado
 if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
   // Asegurar que no se conecten múltiples veces en fast-refresh de Next.js
-  if (!(auth as any)._emulatorActivated) {
-    (auth as any)._emulatorActivated = true;
+  if (!(auth as unknown as Record<string, boolean>)._emulatorActivated) {
+    (auth as unknown as Record<string, boolean>)._emulatorActivated = true;
     try {
       connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-      console.log('🔌 Conectado al emulador de Firebase Auth (puerto 9099)');
     } catch (e) {
       console.warn('⚠️ Error al conectar al emulador de Auth:', e);
     }
   }
 
-  if (!(db as any)._emulatorActivated) {
-    (db as any)._emulatorActivated = true;
+  if (!(db as unknown as Record<string, boolean>)._emulatorActivated) {
+    (db as unknown as Record<string, boolean>)._emulatorActivated = true;
     try {
       connectFirestoreEmulator(db, 'localhost', 8080);
-      console.log('🔌 Conectado al emulador de Firestore (puerto 8080)');
     } catch (e) {
       console.warn('⚠️ Error al conectar al emulador de Firestore:', e);
     }

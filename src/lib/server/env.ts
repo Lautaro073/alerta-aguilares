@@ -17,6 +17,9 @@ const EnvSchema = z.object({
   // FCM VAPID Key (opcional para desarrollo, recomendado para producción)
   NEXT_PUBLIC_FIREBASE_VAPID_KEY: z.string().optional().or(z.literal('')),
 
+  // Firebase App Check — reCAPTCHA v3 Site Key
+  NEXT_PUBLIC_RECAPTCHA_SITE_KEY: z.string().optional().or(z.literal('')),
+
   // Cloudinary (almacenamiento de fotos de reportes)
   CLOUDINARY_CLOUD_NAME: z.string().min(1),
   CLOUDINARY_API_KEY: z.string().min(1),

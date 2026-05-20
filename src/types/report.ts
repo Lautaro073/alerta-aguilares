@@ -27,6 +27,10 @@ export interface Report {
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
+
+  // Confirmaciones e interactividad (Fase 2)
+  verifiedCount?: number;
+  confirmedBy?: string[];
 }
 
 /**

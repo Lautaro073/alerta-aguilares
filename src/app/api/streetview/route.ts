@@ -52,7 +52,7 @@ function getFallbackSvg(lat: number, lng: number, message = 'Vista de calle no d
       Coordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}
     </text>
     <text x="50%" y="330" dominant-baseline="middle" text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="11" font-weight="400" fill="rgba(79, 124, 255, 0.6)">
-      CiudadAlerta Aguilares
+      Alertas Aguilares
     </text>
   </svg>`;
 }

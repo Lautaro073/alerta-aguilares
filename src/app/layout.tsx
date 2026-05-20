@@ -17,7 +17,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "CiudadAlerta Aguilares — Reportá tu barrio",
+  title: "Alertas Aguilares — Reportá tu barrio",
   description:
     "Plataforma vecinal de reportes geolocalizados para Aguilares, Tucumán. Informá baches, alumbrado, basura, inundaciones y más en tiempo real.",
   keywords: [
@@ -30,14 +30,14 @@ export const metadata: Metadata = {
     "alumbrado",
     "basura",
   ],
-  authors: [{ name: "CiudadAlerta" }],
+  authors: [{ name: "Alertas Aguilares" }],
   robots: { index: true, follow: true },
   openGraph: {
-    title: "CiudadAlerta Aguilares",
+    title: "Alertas Aguilares",
     description: "Reportá problemas urbanos en Aguilares, Tucumán.",
     type: "website",
     locale: "es_AR",
-    siteName: "CiudadAlerta",
+    siteName: "Alertas Aguilares",
   },
 };
 
@@ -47,6 +47,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   themeColor: "#0a0f1d",
 };
+
+import { AuthProvider } from "@/hooks/useAuth";
 
 export default function RootLayout({
   children,
@@ -59,7 +61,9 @@ export default function RootLayout({
       className={`${outfit.variable} ${plusJakartaSans.variable} h-full antialiased`}
     >
       <body className="font-jakarta min-h-dvh bg-background text-foreground flex flex-col">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

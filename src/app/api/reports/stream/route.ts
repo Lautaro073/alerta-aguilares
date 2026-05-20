@@ -73,6 +73,8 @@ export async function GET(request: NextRequest) {
               createdAt: data.createdAt,
               updatedAt: data.updatedAt,
               resolvedAt: data.resolvedAt || null,
+              verifiedCount: data.verifiedCount || 0,
+              confirmedBy: data.confirmedBy || [],
             } as Report;
           });
 

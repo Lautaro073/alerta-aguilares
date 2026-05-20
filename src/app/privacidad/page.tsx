@@ -20,10 +20,10 @@ export default function PrivacyPage() {
           <div className="flex flex-col">
             <h1 className="font-outfit font-extrabold text-2xl tracking-tight text-white flex items-center gap-2">
               <ShieldCheck className="text-accent shrink-0" size={26} />
-              <span>CiudadAlerta</span>
+              <span>Alertas Aguilares</span>
             </h1>
             <span className="font-jakarta text-[10px] text-muted font-bold tracking-wider uppercase mt-1">
-              Aguilares, Tucumán
+              Participación Ciudadana
             </span>
           </div>
 
@@ -140,7 +140,7 @@ export default function PrivacyPage() {
         {/* Footer Informativo */}
         <footer className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left select-none">
           <p className="font-jakarta text-[11px] text-muted">
-            CiudadAlerta es una iniciativa ciudadana colaborativa de código abierto enfocada en mejorar la calidad de vida y seguridad de la ciudad de Aguilares.
+            Alertas Aguilares es una iniciativa ciudadana colaborativa de código abierto enfocada en mejorar la calidad de vida y seguridad de la ciudad de Aguilares.
           </p>
           <span className="font-mono text-[9.5px] text-accent/80 shrink-0">
             Versión MVP 1.1

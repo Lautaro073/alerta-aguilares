@@ -11,6 +11,7 @@
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^5.2.0",
     "cloudinary": "^2.10.0",
+    "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",

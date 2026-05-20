@@ -22,10 +22,10 @@ export default function TopBar({ activeIncidentCount }: TopBarProps) {
         </div>
         <div className="flex flex-col">
           <h1 className="font-outfit font-extrabold text-sm md:text-base tracking-tight leading-none text-foreground flex items-center gap-1">
-            Ciudad<span className="gradient-text">Alerta</span>
+            Alertas<span className="gradient-text">Aguilares</span>
           </h1>
           <span className="font-jakarta font-semibold text-[9px] text-muted tracking-wider uppercase leading-none mt-0.5">
-            Aguilares, Tucumán
+            Participación Ciudadana
           </span>
         </div>
       </div>

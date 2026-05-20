@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { CATEGORIES, CategoryId } from '@/lib/constants/categories';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { Shield, MapPin, Flame, Sparkles, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import AuthModal from '@/components/auth/AuthModal';
+import { Shield, MapPin, Flame, Sparkles, ChevronLeft, ChevronRight, Filter, User, LogOut } from 'lucide-react';
 
 interface MapControlsProps {
   selectedCategories: CategoryId[];
@@ -31,6 +33,9 @@ export default function MapControls({
   const totalSelected = selectedCategories.length;
 
   const [showFilters, setShowFilters] = useState(true);
+  const { user, profile, isAdmin, signOut } = useAuth();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -82,27 +87,27 @@ export default function MapControls({
       <div className="max-w-4xl mx-auto w-full flex flex-col gap-3 pointer-events-auto">
         
         {/* Barra superior de Marca y Tipo de Vista */}
-        <div className="glass-strong px-4 py-3 shadow-md flex items-center justify-between gap-4 animate-slide-down">
+        <div className="glass-strong px-3 md:px-4 py-3 shadow-md flex items-center justify-between gap-4 animate-slide-down">
           {/* Logo / Nombre de marca */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 md:gap-2.5">
             <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/25 flex items-center justify-center text-accent shadow shadow-accent/10">
               <Shield size={18} className="animate-pulse-slow shrink-0" />
             </div>
             <div className="flex flex-col">
-              <h1 className="font-outfit font-extrabold text-base md:text-lg tracking-tight leading-none text-foreground flex items-center gap-1.5 select-none">
-                Ciudad<span className="gradient-text">Alerta</span>
+              <h1 className="font-outfit font-extrabold text-sm md:text-lg tracking-tight leading-none text-foreground flex items-center gap-1 select-none">
+                Alertas<span className="gradient-text">Aguilares</span>
               </h1>
-              <span className="font-jakarta font-semibold text-[10px] text-muted tracking-wider uppercase leading-none mt-1 select-none">
-                Aguilares, Tucumán
+              <span className="font-jakarta font-semibold text-[9px] md:text-[10px] text-muted tracking-wider uppercase leading-none mt-1 select-none">
+                Participación Ciudadana
               </span>
             </div>
           </div>
-          {/* Controles de Acción (Filtros y Selector de vistas) */}
-          <div className="flex items-center gap-2">
+          {/* Controles de Acción (Filtros, Selector de vistas y Login) */}
+          <div className="flex items-center gap-1.5 md:gap-2">
             {/* Botón premium para alternar visibilidad de filtros */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center justify-center gap-1.5 h-10 px-3 md:px-3.5 rounded-pill font-outfit text-xs font-bold border transition-all duration-300 select-none cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 h-10 px-2.5 md:px-3.5 rounded-pill font-outfit text-xs font-bold border transition-all duration-300 select-none cursor-pointer ${
                 showFilters
                   ? 'bg-surface-2/80 text-foreground border-border hover:bg-surface-3'
                   : 'bg-accent/15 border-accent/40 text-accent hover:bg-accent/25 shadow shadow-accent/5'
@@ -110,15 +115,15 @@ export default function MapControls({
               title={showFilters ? "Ocultar filtros de categoría" : "Mostrar filtros de categoría"}
             >
               <Filter size={13} className="shrink-0" />
-              <span className="hidden sm:inline">{showFilters ? 'Ocultar Filtros' : 'Mostrar Filtros'}</span>
-              <span className="sm:hidden">Filtros</span>
+              <span className="hidden md:inline">{showFilters ? 'Ocultar Filtros' : 'Mostrar Filtros'}</span>
+              <span className="md:hidden">Filtros</span>
             </button>
 
             {/* Selector de vistas (Markers vs Heatmap) */}
-            <div className="flex bg-background/80 border border-border p-0.5 rounded-pill relative overflow-hidden self-center h-10 w-40 md:w-44 select-none">
+            <div className="hidden xs:flex bg-background/80 border border-border p-0.5 rounded-pill relative overflow-hidden self-center h-10 w-32 md:w-44 select-none">
               <button
                 onClick={() => setView('markers')}
-                className={`flex-1 flex items-center justify-center gap-1.5 font-outfit text-[11px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${
+                className={`flex-1 flex items-center justify-center gap-1 md:gap-1.5 font-outfit text-[10px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${
                   selectedView === 'markers'
                     ? 'text-white bg-accent shadow-sm'
                     : 'text-muted hover:text-foreground'
@@ -131,7 +136,7 @@ export default function MapControls({
               </button>
               <button
                 onClick={() => setView('heatmap')}
-                className={`flex-1 flex items-center justify-center gap-1.5 font-outfit text-[11px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${
+                className={`flex-1 flex items-center justify-center gap-1 md:gap-1.5 font-outfit text-[10px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${
                   selectedView === 'heatmap'
                     ? 'text-white bg-accent shadow-sm'
                     : 'text-muted hover:text-foreground'
@@ -143,6 +148,82 @@ export default function MapControls({
                 <span>Calor</span>
               </button>
             </div>
+
+            {/* Botón de Login / Menú de Usuario */}
+            {!user ? (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 h-10 px-3 md:px-4 rounded-pill font-outfit text-xs font-bold bg-accent border border-accent hover:bg-accent/95 hover:shadow-glow hover:shadow-accent/30 text-white transition-all duration-300 cursor-pointer shadow shadow-accent/20 active:scale-95 shrink-0"
+              >
+                <User size={13} className="shrink-0" />
+                <span>Ingresar</span>
+              </button>
+            ) : (
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center justify-center w-10 h-10 rounded-full border border-border hover:border-border-strong bg-surface-2 hover:bg-surface-3 transition-all duration-200 cursor-pointer overflow-hidden relative active:scale-95"
+                  title={profile?.displayName || user.displayName || 'Vecino'}
+                >
+                  {profile?.photoURL || user.photoURL ? (
+                    <img
+                      src={profile?.photoURL || user.photoURL || ''}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-accent/15 text-accent font-outfit font-extrabold text-sm">
+                      {(profile?.displayName || user.displayName || 'V').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </button>
+                
+                {/* Menú Desplegable */}
+                {showUserMenu && (
+                  <>
+                    <div
+                      onClick={() => setShowUserMenu(false)}
+                      className="fixed inset-0 z-[1000] cursor-default"
+                    />
+                    <div className="absolute right-0 mt-2 w-48 glass-strong border border-white/10 rounded-xl shadow-glow py-1.5 z-[1010] animate-scale-in text-left pointer-events-auto font-jakarta">
+                      <div className="px-3 py-2 border-b border-border select-none">
+                        <p className="font-outfit font-bold text-xs text-foreground truncate">
+                          {profile?.displayName || user.displayName || 'Vecino'}
+                        </p>
+                        <p className="font-jakarta text-[10px] text-muted truncate mt-0.5">
+                          {profile?.email || user.email}
+                        </p>
+                      </div>
+                      
+                      {isAdmin && (
+                        <a
+                          href="/admin"
+                          className="flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-yellow-400 hover:bg-surface-3 transition-colors select-none"
+                        >
+                          <Shield size={13} className="shrink-0 text-yellow-400" />
+                          <span>Panel de Moderación</span>
+                        </a>
+                      )}
+                      
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          signOut();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-red-400 hover:bg-surface-3 transition-colors select-none cursor-pointer border-none bg-transparent"
+                      >
+                        <LogOut size={13} className="shrink-0 text-red-400" />
+                        <span>Cerrar Sesión</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Modal de Autenticación */}
+            <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
           </div>
         </div>
 

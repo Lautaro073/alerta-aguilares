@@ -10,6 +10,7 @@ import { AGUILARES_BOUNDS } from '@/lib/constants/map';
 import { getVisitorId } from '@/lib/utils/fingerprint';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { X, Check, AlertOctagon, MapPin, Bell, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { getAppCheckToken } from '@/lib/firebase/appCheckClient';
 
 // Importación dinámica de ReportMiniMap para prevenir fallos en SSR de Leaflet
 const ReportMiniMap = dynamic(() => import('./ReportMiniMap'), {
@@ -107,10 +108,12 @@ export default function ReportDrawer({
       const visitorId = await getVisitorId();
 
       // 2. Realizar petición POST
+      const appCheckToken = await getAppCheckToken();
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
         },
         body: JSON.stringify({
           lat,

@@ -7,6 +7,7 @@ import { checkRateLimit } from '@/lib/utils/rateLimit';
 import { hashValue } from '@/lib/server/hash';
 import { env } from '@/lib/server/env';
 import { CATEGORIES } from '@/lib/constants/categories';
+import { verifyAppCheckToken } from '@/lib/server/appCheck';
 
 export const dynamic = 'force-dynamic';
 
@@ -164,6 +165,12 @@ export async function POST(request: NextRequest) {
       if (!origin || origin !== env.ALLOWED_ORIGIN) {
         return forbidden('Acceso denegado: Origen de solicitud no autorizado.');
       }
+    }
+
+    // 1b. Verificación de Firebase App Check (solo en producción)
+    const appCheckValid = await verifyAppCheckToken(request);
+    if (!appCheckValid) {
+      return forbidden('Acceso denegado: Token de App Check inválido o ausente.');
     }
 
     // 2. Parsear el cuerpo de la solicitud

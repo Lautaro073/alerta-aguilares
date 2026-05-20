@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cloudinary } from '@/lib/server/cloudinary';
-import { badRequest, serverError } from '@/lib/server/response';
+import { badRequest, serverError, forbidden } from '@/lib/server/response';
+import { verifyAppCheckToken } from '@/lib/server/appCheck';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificación de Firebase App Check (solo en producción)
+    const appCheckValid = await verifyAppCheckToken(request);
+    if (!appCheckValid) {
+      return forbidden('Acceso denegado: Token de App Check inválido o ausente.');
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
 

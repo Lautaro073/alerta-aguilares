@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Camera, X, Loader2, ImagePlus, AlertCircle } from 'lucide-react';
+import { getAppCheckToken } from '@/lib/firebase/appCheckClient';
 
 interface ImageUploaderProps {
   images: string[];
@@ -61,8 +62,12 @@ export default function ImageUploader({
           const formData = new FormData();
           formData.append('file', file);
 
+          const appCheckToken = await getAppCheckToken();
           const response = await fetch('/api/upload', {
             method: 'POST',
+            headers: {
+              ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+            },
             body: formData,
           });
 

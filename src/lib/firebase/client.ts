@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
@@ -18,6 +18,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // Inicializar Firebase App Check (solo en el cliente)
+let appCheckInstance: AppCheck | null = null;
+
 if (typeof window !== 'undefined') {
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
@@ -25,13 +27,13 @@ if (typeof window !== 'undefined') {
     // Modo debug: genera un token en la consola del navegador que se registra
     // manualmente en Firebase Console → App Check → Debug tokens
     (self as unknown as Record<string, unknown>).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider('6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'), // site key de prueba
+    appCheckInstance = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider('6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'), // site key de prueba pública de Google
       isTokenAutoRefreshEnabled: true,
     });
   } else if (siteKey) {
     // Producción: usar la site key real de reCAPTCHA v3
-    initializeAppCheck(app, {
+    appCheckInstance = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(siteKey),
       isTokenAutoRefreshEnabled: true,
     });
@@ -60,4 +62,4 @@ if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_FIREBA
   }
 }
 
-export { app, auth, db };
+export { app, auth, db, appCheckInstance };

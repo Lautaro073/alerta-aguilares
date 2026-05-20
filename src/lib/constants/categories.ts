@@ -1,0 +1,191 @@
+export const CATEGORY_IDS = [
+  'ALUMBRADO',
+  'BACHE',
+  'INSEGURIDAD',
+  'BASURA',
+  'INUNDACION',
+  'OBRA_PELIGROSA',
+  'AGUA_CLOACA',
+  'ARBOL',
+  'SEMAFORO',
+  'MALEZAS',
+  'ANIMALES',
+  'VEREDA',
+  'QUEMA_RUIDO',
+  'PLAGAS_DENGUE',
+  'PLAZA_JUEGOS',
+  'CONTAMINACION',
+  'ACCESIBILIDAD',
+  'VANDALISMO',
+  'BROMATOLOGIA',
+  'CABLES_POSTES',
+  'TRANSPORTE',
+  'OTRO',
+] as const;
+
+export type CategoryId = typeof CATEGORY_IDS[number];
+
+export interface Category {
+  id: CategoryId;
+  iconName: string;
+  name: string;
+  label: string; // Etiqueta corta para el selector de categorías
+  color: string;
+}
+
+export const CATEGORIES: Record<CategoryId, Category> = {
+  ALUMBRADO: {
+    id: 'ALUMBRADO',
+    iconName: 'Lightbulb',
+    name: 'Falta de alumbrado público',
+    label: 'Alumbrado',
+    color: '#F59E0B',
+  },
+  BACHE: {
+    id: 'BACHE',
+    iconName: 'Cone',
+    name: 'Bache / Pozo en calzada',
+    label: 'Bache',
+    color: '#EF4444',
+  },
+  INSEGURIDAD: {
+    id: 'INSEGURIDAD',
+    iconName: 'ShieldAlert',
+    name: 'Zona insegura',
+    label: 'Inseguridad',
+    color: '#8B5CF6',
+  },
+  BASURA: {
+    id: 'BASURA',
+    iconName: 'Trash2',
+    name: 'Basura / Escombros',
+    label: 'Basura',
+    color: '#6B7280',
+  },
+  INUNDACION: {
+    id: 'INUNDACION',
+    iconName: 'Waves',
+    name: 'Inundación / Anegamiento',
+    label: 'Inundación',
+    color: '#3B82F6',
+  },
+  OBRA_PELIGROSA: {
+    id: 'OBRA_PELIGROSA',
+    iconName: 'Construction',
+    name: 'Obra peligrosa sin señalizar',
+    label: 'Obra peligrosa',
+    color: '#F97316',
+  },
+  AGUA_CLOACA: {
+    id: 'AGUA_CLOACA',
+    iconName: 'Droplet',
+    name: 'Pérdida de agua / Rotura de cloaca',
+    label: 'Pérdida de agua',
+    color: '#06B6D4',
+  },
+  ARBOL: {
+    id: 'ARBOL',
+    iconName: 'TreePine',
+    name: 'Árbol peligroso / Caído',
+    label: 'Árbol caído',
+    color: '#22C55E',
+  },
+  SEMAFORO: {
+    id: 'SEMAFORO',
+    iconName: 'TrafficCone',
+    name: 'Semáforo roto o fuera de servicio',
+    label: 'Semáforo',
+    color: '#F43F5E',
+  },
+  MALEZAS: {
+    id: 'MALEZAS',
+    iconName: 'Sprout',
+    name: 'Malezas altas / Pastizales sin cortar',
+    label: 'Malezas',
+    color: '#10B981',
+  },
+  ANIMALES: {
+    id: 'ANIMALES',
+    iconName: 'PawPrint',
+    name: 'Animales sueltos en la vía pública',
+    label: 'Animales',
+    color: '#84CC16',
+  },
+  VEREDA: {
+    id: 'VEREDA',
+    iconName: 'Footprints',
+    name: 'Vereda rota o obstruida',
+    label: 'Vereda',
+    color: '#A16207',
+  },
+  QUEMA_RUIDO: {
+    id: 'QUEMA_RUIDO',
+    iconName: 'Flame',
+    name: 'Quema de basura / Ruidos molestos',
+    label: 'Quema/Ruido',
+    color: '#818CF8',
+  },
+  PLAGAS_DENGUE: {
+    id: 'PLAGAS_DENGUE',
+    iconName: 'Bug',
+    name: 'Foco de Dengue / Mosquitos y plagas',
+    label: 'Dengue/Plagas',
+    color: '#0D9488',
+  },
+  PLAZA_JUEGOS: {
+    id: 'PLAZA_JUEGOS',
+    iconName: 'Trees',
+    name: 'Plazas abandonadas / Juegos rotos',
+    label: 'Plazas y Juegos',
+    color: '#D946EF',
+  },
+  CONTAMINACION: {
+    id: 'CONTAMINACION',
+    iconName: 'Factory',
+    name: 'Contaminación industrial / Hollín y vinaza',
+    label: 'Contaminación',
+    color: '#475569',
+  },
+  ACCESIBILIDAD: {
+    id: 'ACCESIBILIDAD',
+    iconName: 'Accessibility',
+    name: 'Rampa rota / Falta de accesibilidad',
+    label: 'Accesibilidad',
+    color: '#0284C7',
+  },
+  VANDALISMO: {
+    id: 'VANDALISMO',
+    iconName: 'Paintbrush',
+    name: 'Vandalismo / Daños en espacio público',
+    label: 'Vandalismo',
+    color: '#4F46E5',
+  },
+  BROMATOLOGIA: {
+    id: 'BROMATOLOGIA',
+    iconName: 'Utensils',
+    name: 'Falta de higiene / Control bromatológico en comercio',
+    label: 'Bromatología',
+    color: '#EA580C',
+  },
+  CABLES_POSTES: {
+    id: 'CABLES_POSTES',
+    iconName: 'Cable',
+    name: 'Cables caídos o poste con peligro de caída',
+    label: 'Cables/Postes',
+    color: '#BE123C',
+  },
+  TRANSPORTE: {
+    id: 'TRANSPORTE',
+    iconName: 'Bus',
+    name: 'Parada de colectivos dañada o sin iluminación',
+    label: 'Transporte',
+    color: '#0369A1',
+  },
+  OTRO: {
+    id: 'OTRO',
+    iconName: 'HelpCircle',
+    name: 'Otro problema',
+    label: 'Otro',
+    color: '#9CA3AF',
+  },
+};

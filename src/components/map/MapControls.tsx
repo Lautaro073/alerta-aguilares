@@ -64,7 +64,7 @@ export default function MapControls({
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) {
-      return () => {};
+      return () => { };
     }
 
     updateScrollArrows();
@@ -119,7 +119,7 @@ export default function MapControls({
   return (
     <div className="absolute top-4 left-0 right-0 z-[1000] px-4 pointer-events-none">
       <div className="max-w-4xl mx-auto w-full flex flex-col gap-3 pointer-events-auto">
-        
+
         {/* Barra superior de Marca y Tipo de Vista */}
         <div className="glass-strong px-3 md:px-4 py-3 shadow-md flex items-center justify-between gap-4 animate-slide-down relative z-20">
           {/* Logo / Nombre de marca */}
@@ -141,11 +141,10 @@ export default function MapControls({
             {/* Botón premium para alternar visibilidad de filtros */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center justify-center gap-1.5 h-10 px-2.5 md:px-3.5 rounded-pill font-outfit text-xs font-bold border transition-all duration-300 select-none cursor-pointer ${
-                showFilters
+              className={`flex items-center justify-center gap-1.5 h-10 px-2.5 md:px-3.5 rounded-pill font-outfit text-xs font-bold border transition-all duration-300 select-none cursor-pointer ${showFilters
                   ? 'bg-surface-2/80 text-foreground border-border hover:bg-surface-3'
                   : 'bg-accent/15 border-accent/40 text-accent hover:bg-accent/25 shadow shadow-accent/5'
-              }`}
+                }`}
               title={showFilters ? "Ocultar filtros de categoría" : "Mostrar filtros de categoría"}
             >
               <Filter size={13} className="shrink-0" />
@@ -157,11 +156,10 @@ export default function MapControls({
             <div className="hidden sm:flex bg-background/80 border border-border p-0.5 rounded-pill relative overflow-hidden self-center h-10 w-32 md:w-44 select-none">
               <button
                 onClick={() => setView('markers')}
-                className={`flex-1 flex items-center justify-center gap-1 md:gap-1.5 font-outfit text-[10px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${
-                  selectedView === 'markers'
+                className={`flex-1 flex items-center justify-center gap-1 md:gap-1.5 font-outfit text-[10px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${selectedView === 'markers'
                     ? 'text-white bg-accent shadow-sm'
                     : 'text-muted hover:text-foreground'
-                }`}
+                  }`}
                 style={{ minHeight: '36px' }}
                 title="Ver marcadores detallados"
               >
@@ -170,11 +168,10 @@ export default function MapControls({
               </button>
               <button
                 onClick={() => setView('heatmap')}
-                className={`flex-1 flex items-center justify-center gap-1 md:gap-1.5 font-outfit text-[10px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${
-                  selectedView === 'heatmap'
+                className={`flex-1 flex items-center justify-center gap-1 md:gap-1.5 font-outfit text-[10px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${selectedView === 'heatmap'
                     ? 'text-white bg-accent shadow-sm'
                     : 'text-muted hover:text-foreground'
-                }`}
+                  }`}
                 style={{ minHeight: '36px' }}
                 title="Ver mapa de calor"
               >
@@ -215,7 +212,7 @@ export default function MapControls({
                     </div>
                   )}
                 </button>
-                
+
                 {/* Menú Desplegable */}
                 {showUserMenu && (
                   <>
@@ -232,7 +229,7 @@ export default function MapControls({
                           {profile?.email || user.email}
                         </p>
                       </div>
-                      
+
                       {isAdmin && (
                         <a
                           href="/admin"
@@ -259,7 +256,7 @@ export default function MapControls({
                           <span>{isElevating ? 'Elevando...' : '[Dev] Hacerme Admin'}</span>
                         </button>
                       )}
-                      
+
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
@@ -287,11 +284,10 @@ export default function MapControls({
             {/* Chip de "Todos" (Limpia filtros) */}
             <button
               onClick={clearCategories}
-              className={`btn py-1.5 px-3 h-8 shrink-0 text-xs font-bold flex items-center justify-center gap-1.5 rounded-pill select-none transition-all duration-200 border ${
-                totalSelected === 0
+              className={`btn py-1.5 px-3 h-8 shrink-0 text-xs font-bold flex items-center justify-center gap-1.5 rounded-pill select-none transition-all duration-200 border ${totalSelected === 0
                   ? 'bg-foreground text-background border-foreground font-extrabold shadow-sm'
                   : 'bg-surface-2 text-muted border-border hover:bg-surface-3 hover:text-foreground'
-              }`}
+                }`}
             >
               <Sparkles size={12} className="shrink-0 animate-pulse-slow" />
               <span>Todos</span>
@@ -302,7 +298,7 @@ export default function MapControls({
 
             {/* Contenedor del scroll de filtros */}
             <div className="flex-1 relative overflow-hidden flex items-center h-full">
-              
+
               {/* Flecha de desplazamiento izquierda (visible en PC al hacer hover si hay overflow) */}
               {showLeftArrow && (
                 <button
@@ -324,21 +320,20 @@ export default function MapControls({
                   const active = isCategorySelected(cat.id);
                   const colorStyle = active
                     ? {
-                        backgroundColor: cat.color,
-                        borderColor: cat.color,
-                        color: '#080d1a',
-                      }
+                      backgroundColor: cat.color,
+                      borderColor: cat.color,
+                      color: '#080d1a',
+                    }
                     : undefined;
 
                   return (
                     <button
                       key={cat.id}
                       onClick={() => toggleCategory(cat.id)}
-                      className={`btn shrink-0 px-3 h-8 text-xs font-semibold rounded-pill flex items-center gap-1.5 border select-none transition-all duration-200 cursor-pointer pointer-events-auto ${
-                        active
+                      className={`btn shrink-0 px-3 h-8 text-xs font-semibold rounded-pill flex items-center gap-1.5 border select-none transition-all duration-200 cursor-pointer pointer-events-auto ${active
                           ? 'font-extrabold scale-[1.03] shadow-sm'
                           : 'bg-surface-2/60 text-muted border-border hover:bg-surface-3 hover:text-foreground'
-                      }`}
+                        }`}
                       style={colorStyle}
                     >
                       <CategoryIcon
@@ -367,10 +362,10 @@ export default function MapControls({
             </div>
 
             {/* Separador vertical sutil */}
-            <div className="w-[1px] h-6 bg-border shrink-0" />
+            {/* <div className="w-[1px] h-6 bg-border shrink-0" /> */}
 
             {/* Selector de Timeframe */}
-            <div className="flex items-center gap-0.5 shrink-0 bg-background/40 p-0.5 rounded-pill border border-border/60 pointer-events-auto">
+            {/* <div className="flex items-center gap-0.5 shrink-0 bg-background/40 p-0.5 rounded-pill border border-border/60 pointer-events-auto">
               {(['24h', '7d', '30d', 'all'] as const).map((tf) => (
                 <button
                   key={tf}
@@ -383,12 +378,12 @@ export default function MapControls({
                 >
                   {tf === 'all' ? 'Todo' : tf}
                 </button>
-              ))}
-            </div>
+              ))} */}
+          {/* </div> */}
           </div>
         )}
 
-      </div>
     </div>
+    </div >
   );
 }

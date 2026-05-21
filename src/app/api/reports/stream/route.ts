@@ -128,8 +128,8 @@ export async function GET(request: NextRequest) {
           }
           q = q.where('status', '==', 'ACTIVE');
           if (timeframe && timeframe !== 'all') {
-            const days = timeframe === '7d' ? 7 : 30;
-            const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+            const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
+            const thresholdDate = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
             q = q.where('createdAt', '>=', thresholdDate);
           }
 
@@ -170,8 +170,8 @@ export async function GET(request: NextRequest) {
         query = query.where('status', '==', 'ACTIVE');
 
         if (timeframe && timeframe !== 'all') {
-          const days = timeframe === '7d' ? 7 : 30;
-          const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+          const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
+          const thresholdDate = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
           query = query.where('createdAt', '>=', thresholdDate);
         }
 

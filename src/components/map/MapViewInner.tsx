@@ -47,16 +47,18 @@ export default function MapViewInner() {
   const {
     selectedCategories,
     selectedView,
+    selectedTimeframe,
     toggleCategory,
     clearCategories,
     isCategorySelected,
     setView,
+    setTimeframe,
   } = useMapFilter();
 
   const { reports, isLoading, isConnected } = useRealtimeReports({
     categories: selectedCategories,
     view: selectedView,
-    timeframe: 'all', // El mapa principal siempre muestra todos los reportes activos en vivo
+    timeframe: selectedTimeframe,
     bounds: null,     // Consulta global estática para toda la ciudad (cero reconexiones y 60 FPS estables)
   });
 
@@ -83,6 +85,8 @@ export default function MapViewInner() {
         clearCategories={clearCategories}
         setView={setView}
         isCategorySelected={isCategorySelected}
+        selectedTimeframe={selectedTimeframe}
+        setTimeframe={setTimeframe}
       />
 
       {/* Contenedor Principal de Leaflet */}

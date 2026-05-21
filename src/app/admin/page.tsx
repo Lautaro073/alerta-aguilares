@@ -26,6 +26,7 @@ import {
   Loader2,
   AlertTriangle,
   Clock,
+  UserCircle,
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -423,7 +424,7 @@ export default function AdminDashboard() {
                           )}
                         </div>
                         
-                        {/* Metadatos (Fecha, Ubicación, Apoyos) */}
+                        {/* Metadatos (Fecha, Ubicación, Apoyos, Autor) */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-1.5 text-[10.5px] text-muted font-medium select-none">
                           <span className="flex items-center gap-1">
                             <Calendar size={11} className="shrink-0" />
@@ -446,6 +447,13 @@ export default function AdminDashboard() {
                             <Users size={11} className="shrink-0 text-accent" />
                             <span className="text-foreground/90 font-bold">
                               {report.verifiedCount || 0} apoyos
+                            </span>
+                          </span>
+                          {/* Autor del reporte */}
+                          <span className="flex items-center gap-1">
+                            <UserCircle size={11} className={`shrink-0 ${report.userDisplayName ? 'text-emerald-400' : 'text-muted/50'}`} />
+                            <span className={report.userDisplayName ? 'text-emerald-400 font-bold' : 'text-muted/60 italic'}>
+                              {report.userDisplayName || 'Anónimo'}
                             </span>
                           </span>
                           {hasPhotos && (

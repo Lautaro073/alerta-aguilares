@@ -5,8 +5,10 @@ import { CATEGORIES, CategoryId } from '@/lib/constants/categories';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
 import AuthModal from '@/components/auth/AuthModal';
-import { Shield, MapPin, Flame, Sparkles, ChevronLeft, ChevronRight, Filter, User, LogOut } from 'lucide-react';
+import { Shield, MapPin, Flame, Sparkles, ChevronLeft, ChevronRight, Filter, User, LogOut, Zap } from 'lucide-react';
 import NotificationBell from '@/components/layout/NotificationBell';
+
+import { TimeframeId } from '@/hooks/useMapFilter';
 
 interface MapControlsProps {
   selectedCategories: CategoryId[];
@@ -15,6 +17,8 @@ interface MapControlsProps {
   clearCategories: () => void;
   setView: (view: 'markers' | 'heatmap') => void;
   isCategorySelected: (category: CategoryId) => boolean;
+  selectedTimeframe: TimeframeId;
+  setTimeframe: (timeframe: TimeframeId) => void;
 }
 
 /**
@@ -29,6 +33,8 @@ export default function MapControls({
   clearCategories,
   setView,
   isCategorySelected,
+  selectedTimeframe,
+  setTimeframe,
 }: MapControlsProps) {
   const categoriesList = Object.values(CATEGORIES);
   const totalSelected = selectedCategories.length;
@@ -37,6 +43,7 @@ export default function MapControls({
   const { user, profile, isAdmin, signOut } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isElevating, setIsElevating] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -73,6 +80,32 @@ export default function MapControls({
       clearTimeout(timer);
     };
   }, []);
+
+  // [DEV ONLY] Promover al usuario actual a administrador
+  const handleElevate = async () => {
+    if (!user || isElevating) return;
+    setIsElevating(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/auth/elevate', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        // Forzar refresh del token para que onIdTokenChanged dispare y actualice isAdmin
+        await user.getIdToken(true);
+        setShowUserMenu(false);
+      } else {
+        const result = await response.json();
+        alert(result.error || 'Error al elevar permisos.');
+      }
+    } catch (err) {
+      console.error('[DEV] Error al elevar a admin:', err);
+      alert('Error inesperado al elevar permisos.');
+    } finally {
+      setIsElevating(false);
+    }
+  };
 
   // Realizar desplazamiento horizontal animado al hacer click en los chevrons
   const scroll = (direction: 'left' | 'right') => {
@@ -209,6 +242,23 @@ export default function MapControls({
                           <span>Panel de Moderación</span>
                         </a>
                       )}
+
+                      {/* Botón exclusivo de desarrollo para promoción a admin */}
+                      {process.env.NODE_ENV !== 'production' && !isAdmin && (
+                        <button
+                          onClick={handleElevate}
+                          disabled={isElevating}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-amber-400 hover:bg-amber-500/10 transition-colors select-none cursor-pointer border-none bg-transparent border-t border-border/40"
+                          title="[Solo Desarrollo] Promover esta cuenta a Administrador"
+                        >
+                          {isElevating ? (
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400/30 border-t-amber-400 animate-spin" />
+                          ) : (
+                            <Zap size={13} className="shrink-0" />
+                          )}
+                          <span>{isElevating ? 'Elevando...' : '[Dev] Hacerme Admin'}</span>
+                        </button>
+                      )}
                       
                       <button
                         onClick={() => {
@@ -314,6 +364,26 @@ export default function MapControls({
                 </button>
               )}
 
+            </div>
+
+            {/* Separador vertical sutil */}
+            <div className="w-[1px] h-6 bg-border shrink-0" />
+
+            {/* Selector de Timeframe */}
+            <div className="flex items-center gap-0.5 shrink-0 bg-background/40 p-0.5 rounded-pill border border-border/60 pointer-events-auto">
+              {(['24h', '7d', '30d', 'all'] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-2 md:px-2.5 py-1 text-[10px] md:text-xs font-bold rounded-pill transition-all duration-200 cursor-pointer border-none bg-transparent select-none active:scale-95 ${
+                    selectedTimeframe === tf
+                      ? 'bg-accent text-white shadow-sm font-extrabold'
+                      : 'text-muted hover:text-foreground hover:bg-surface-3/50 font-medium'
+                  }`}
+                >
+                  {tf === 'all' ? 'Todo' : tf}
+                </button>
+              ))}
             </div>
           </div>
         )}

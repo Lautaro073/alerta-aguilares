@@ -38,6 +38,8 @@ export const CreateReportSchema = z.object({
     .string({ message: 'El identificador del navegador es obligatorio.' })
     .min(10, 'El identificador del navegador es demasiado corto.')
     .max(128, 'El identificador del navegador es demasiado largo.'),
+  userId: z.string().optional(),
+  userDisplayName: z.string().optional(),
 });
 
 export type CreateReportInput = z.infer<typeof CreateReportSchema>;
@@ -56,7 +58,7 @@ export const GetReportsQuerySchema = z.object({
     .optional(),
   view: z.enum(['markers', 'heatmap']).default('markers'),
   limit: z.coerce.number().int().positive().max(2000).optional(),
-  timeframe: z.enum(['7d', '30d', 'all']).default('all'),
+  timeframe: z.enum(['24h', '7d', '30d', 'all']).default('all'),
   south: z.coerce.number().optional(),
   north: z.coerce.number().optional(),
   west: z.coerce.number().optional(),

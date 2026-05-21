@@ -5,7 +5,7 @@ const CATEGORIES_KEY = 'ciudadalerta_filter_categories';
 const VIEW_KEY = 'ciudadalerta_filter_view';
 const TIMEFRAME_KEY = 'ciudadalerta_filter_timeframe';
 
-export type TimeframeId = '7d' | '30d' | 'all';
+export type TimeframeId = '24h' | '7d' | '30d' | 'all';
 
 /**
  * Hook personalizado para orquestar y persistir el estado de los filtros del mapa.
@@ -33,7 +33,7 @@ export function useMapFilter() {
         if (cachedView === 'markers' || cachedView === 'heatmap') {
           setSelectedView(cachedView);
         }
-        if (cachedTimeframe === '7d' || cachedTimeframe === '30d' || cachedTimeframe === 'all') {
+        if (cachedTimeframe === '24h' || cachedTimeframe === '7d' || cachedTimeframe === '30d' || cachedTimeframe === 'all') {
           setSelectedTimeframe(cachedTimeframe);
         }
       } catch (error) {

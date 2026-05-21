@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { adminDb, adminMessaging } from '@/lib/firebase/admin';
+import { adminDb, adminMessaging, adminAuth } from '@/lib/firebase/admin';
 import { GetReportsQuerySchema, CreateReportSchema } from '@/lib/validators/report.schema';
 import { badRequest, tooManyRequests, serverError, forbidden } from '@/lib/server/response';
 import { Report, ReportPrivateMeta } from '@/types/report';
@@ -130,8 +130,8 @@ export async function GET(request: NextRequest) {
         }
         q = q.where('status', '==', 'ACTIVE');
         if (timeframe && timeframe !== 'all') {
-          const days = timeframe === '7d' ? 7 : 30;
-          const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+          const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
+          const thresholdDate = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
           q = q.where('createdAt', '>=', thresholdDate);
         }
         return q.orderBy('geohash').startAt(start).endAt(end).get();
@@ -168,8 +168,8 @@ export async function GET(request: NextRequest) {
       query = query.where('status', '==', 'ACTIVE');
 
       if (timeframe && timeframe !== 'all') {
-        const days = timeframe === '7d' ? 7 : 30;
-        const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+        const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
+        const thresholdDate = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
         query = query.where('createdAt', '>=', thresholdDate);
       }
 
@@ -220,6 +220,8 @@ export async function GET(request: NextRequest) {
       resolvedAt: item.data.resolvedAt || null,
       verifiedCount: item.data.verifiedCount || 0,
       confirmedBy: item.data.confirmedBy || [],
+      userId: item.data.userId || undefined,
+      userDisplayName: item.data.userDisplayName || undefined,
     } as Report));
 
     return Response.json(
@@ -276,6 +278,34 @@ export async function POST(request: NextRequest) {
 
     const { lat, lng, category, title, description, images, fingerprintVisitorId } = parsedBody.success ? parsedBody.data : body;
 
+    // 3b. Verificar si el usuario está autenticado y resolver su autoría de forma segura en el servidor
+    let userId: string | undefined = undefined;
+    let userDisplayName: string | undefined = undefined;
+
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      if (token) {
+        try {
+          const decodedToken = await adminAuth.verifyIdToken(token);
+          const uid = decodedToken.uid;
+          
+          // Buscar perfil del usuario en Firestore para obtener el displayName más actualizado
+          const userDoc = await adminDb.collection('users').doc(uid).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            userId = uid;
+            userDisplayName = userData?.displayName || decodedToken.name || 'Vecino Registrado';
+          } else {
+            userId = uid;
+            userDisplayName = decodedToken.name || decodedToken.email?.split('@')[0] || 'Vecino Registrado';
+          }
+        } catch (err) {
+          console.warn('[POST /api/reports] Token enviado pero inválido o expirado:', err);
+        }
+      }
+    }
+
     // 4. Rate Limiting Dual (Fingerprint + IP)
     const ip = getClientIp(request);
     const ipHash = hashValue(ip);
@@ -296,6 +326,11 @@ export async function POST(request: NextRequest) {
     const reportId = reportRef.id;
     const nowISO = new Date().toISOString();
 
+    // Autoría verificada (solo si se resolvió desde el servidor)
+    const authorshipFields: Partial<Report> = userId && userDisplayName
+      ? { userId, userDisplayName }
+      : {};
+
     // Documento público
     const newReport: Report = {
       id: reportId,
@@ -313,6 +348,7 @@ export async function POST(request: NextRequest) {
       resolvedAt: null,
       verifiedCount: 0,
       confirmedBy: [],
+      ...authorshipFields,
     };
 
     // Documento de metadatos privados

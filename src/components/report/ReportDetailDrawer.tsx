@@ -8,7 +8,7 @@ import IncidentPhotos from './IncidentPhotos';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
 import AuthModal from '@/components/auth/AuthModal';
-import { X, Clock, MapPin, Users, Check, Loader2, Heart } from 'lucide-react';
+import { X, Clock, MapPin, Users, Check, Loader2, Heart, BadgeCheck, UserCircle } from 'lucide-react';
 
 interface ReportDetailDrawerProps {
   report: Report | null;
@@ -177,9 +177,24 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
         </h2>
 
         {/* Fecha en Plus Jakarta Sans */}
-        <div className="flex items-center gap-1.5 text-[11.5px] text-muted mb-4 font-jakarta font-medium select-none">
+        <div className="flex items-center gap-1.5 text-[11.5px] text-muted mb-2 font-jakarta font-medium select-none">
           <Clock size={12} className="text-muted shrink-0" />
           <span>Reportado el {formatReportDate(currentReport.createdAt)}</span>
+        </div>
+
+        {/* Autoría del reporte */}
+        <div className="flex items-center gap-1.5 mb-4 select-none">
+          {currentReport.userDisplayName ? (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-jakarta font-semibold text-emerald-400/90">
+              <BadgeCheck size={13} className="shrink-0" />
+              <span>Reportado por <strong>{currentReport.userDisplayName}</strong> · Vecino Registrado</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-jakarta text-muted/70">
+              <UserCircle size={13} className="shrink-0" />
+              <span>Reporte Anónimo</span>
+            </span>
+          )}
         </div>
 
         {/* Sección deslizable del cuerpo */}

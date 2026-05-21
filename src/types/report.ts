@@ -32,6 +32,10 @@ export interface Report {
   // Confirmaciones e interactividad (Fase 2)
   verifiedCount?: number;
   confirmedBy?: string[];
+
+  // Autoría del reporte (Fase 2)
+  userId?: string;
+  userDisplayName?: string;
 }
 
 /**

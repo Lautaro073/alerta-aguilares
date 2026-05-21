@@ -9,7 +9,8 @@ import { CATEGORIES, CategoryId } from '@/lib/constants/categories';
 import { AGUILARES_BOUNDS } from '@/lib/constants/map';
 import { getVisitorId } from '@/lib/utils/fingerprint';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { X, Check, AlertOctagon, MapPin, Bell, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { X, Check, AlertOctagon, MapPin, Bell, ChevronLeft, ChevronRight, Lock, BadgeCheck } from 'lucide-react';
 import { getAppCheckToken } from '@/lib/firebase/appCheckClient';
 
 // Importación dinámica de ReportMiniMap para prevenir fallos en SSR de Leaflet
@@ -50,6 +51,9 @@ export default function ReportDrawer({
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [errors, setErrors] = useState<{ title?: string | undefined; description?: string | undefined }>({});
   const [apiError, setApiError] = useState<string | null>(null);
+
+  // Autenticación del vecino (para asociar autoría al reporte)
+  const { user, profile } = useAuth();
 
   // Si no está abierto, no renderizar nada
   if (!isOpen) return null;
@@ -107,13 +111,24 @@ export default function ReportDrawer({
       // 1. Obtener huella digital del visitante
       const visitorId = await getVisitorId();
 
-      // 2. Realizar petición POST
+      // 2. Obtener token de autenticación si el usuario está logueado
+      let authToken: string | null = null;
+      if (user) {
+        try {
+          authToken = await user.getIdToken();
+        } catch {
+          console.warn('[ReportDrawer] No se pudo obtener el token del usuario.');
+        }
+      }
+
+      // 3. Realizar petición POST con token opcional para autoría verificada
       const appCheckToken = await getAppCheckToken();
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
         },
         body: JSON.stringify({
           lat,
@@ -315,20 +330,27 @@ export default function ReportDrawer({
                   </div>
                 )}
 
-                {/* Nota de privacidad y seguridad */}
+                {/* Nota de privacidad / autoría */}
                 {(step === 2 || step === 3) && (
                   <div className="flex items-center justify-center gap-1.5 text-center select-none py-1 border-t border-border/10 mt-1 shrink-0">
-                    <span className="font-jakarta text-[9.5px] text-muted flex items-center gap-1.5 justify-center">
-                      <Lock size={11} className="text-accent shrink-0" />
-                      <span>Tu reporte es 100% anónimo. Leé nuestra{' '}</span>
-                      <Link
-                        href="/privacidad"
-                        target="_blank"
-                        className="text-accent hover:underline font-bold"
-                      >
-                        Política de Privacidad
-                      </Link>
-                    </span>
+                    {user ? (
+                      <span className="font-jakarta text-[9.5px] text-emerald-400/80 flex items-center gap-1.5 justify-center">
+                        <BadgeCheck size={11} className="shrink-0" />
+                        <span>Reportando como <strong>{profile?.displayName || user.displayName || 'Vecino Registrado'}</strong> · Vecino Verificado</span>
+                      </span>
+                    ) : (
+                      <span className="font-jakarta text-[9.5px] text-muted flex items-center gap-1.5 justify-center">
+                        <Lock size={11} className="text-accent shrink-0" />
+                        <span>Tu reporte es 100% anónimo. Leé nuestra{' '}</span>
+                        <Link
+                          href="/privacidad"
+                          target="_blank"
+                          className="text-accent hover:underline font-bold"
+                        >
+                          Política de Privacidad
+                        </Link>
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

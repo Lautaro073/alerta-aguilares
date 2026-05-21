@@ -212,10 +212,9 @@ export default function ReportDrawer({
         </div>
 
         {/* CONTENIDO INTERNO DEL PASO */}
-        <div className="flex-1 overflow-y-auto pr-1 no-scrollbar flex flex-col justify-between gap-5 pb-2">
-          
-          {/* RENDERIZADO DE PANTALLA DE ÉXITO */}
-          {isSuccess ? (
+        {isSuccess ? (
+          <div className="flex-1 overflow-y-auto pr-1 no-scrollbar flex flex-col justify-between gap-5 pb-2">
+            {/* RENDERIZADO DE PANTALLA DE ÉXITO */}
             <div className="flex-1 flex flex-col items-center justify-center py-6 text-center select-none animate-scale-in">
               <div className="w-16 h-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/10 mb-4 animate-bounce" style={{ animationDuration: '2s' }}>
                 <Check size={32} className="text-emerald-400" />
@@ -249,184 +248,175 @@ export default function ReportDrawer({
                 Listo, volver al mapa
               </button>
             </div>
-          ) : (
-            <>
-              {/* VISTAS DE CADA PASO */}
-              <div className="flex flex-col gap-4">
-                
-                {/* Paso 1: Selección de Categoría */}
-                {step === 1 && (
-                  <CategoryPicker
-                    selectedCategory={selectedCategory}
-                    onSelectCategory={(catId) => {
-                      setSelectedCategory(catId);
-                      // Auto-avanzar al paso 2 tras una leve transición táctil
-                      setTimeout(() => {
-                        setStep(2);
-                      }, 200);
-                    }}
+          </div>
+        ) : (
+          <>
+            {/* Área de formulario scrollable */}
+            <div className="flex-1 overflow-y-auto pr-1 no-scrollbar flex flex-col gap-4 pb-2">
+              {/* Paso 1: Selección de Categoría */}
+              {step === 1 && (
+                <CategoryPicker
+                  selectedCategory={selectedCategory}
+                  onSelectCategory={(catId) => {
+                    setSelectedCategory(catId);
+                    // Auto-avanzar al paso 2 tras una leve transición táctil
+                    setTimeout(() => {
+                      setStep(2);
+                    }, 200);
+                  }}
+                />
+              )}
+
+              {/* Paso 2: MiniMapa Ubicación */}
+              {step === 2 && (
+                <div className="animate-fade-in">
+                  <ReportMiniMap
+                    lat={lat}
+                    lng={lng}
+                    onChangeLocation={handleLocationChange}
                   />
-                )}
+                </div>
+              )}
 
-                {/* Paso 2: MiniMapa Ubicación */}
-                {step === 2 && (
-                  <div className="animate-fade-in">
-                    <ReportMiniMap
-                      lat={lat}
-                      lng={lng}
-                      onChangeLocation={handleLocationChange}
-                    />
-                  </div>
-                )}
-
-                {/* Paso 3: Campos de Texto (Formulario Completo) */}
-                {step === 3 && (
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-4 animate-fade-in">
-                    {/* Resumen visual de los pasos previos */}
-                    <div className="bg-surface-1/40 border border-border/30 rounded-lg p-3 flex flex-col gap-2 shrink-0 select-none">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted font-jakarta">Incidente:</span>
-                        {currentCategoryConfig && (
-                          <span 
-                            className="font-bold flex items-center gap-1.5"
-                            style={{ color: currentCategoryConfig.color }}
-                          >
-                            <CategoryIcon name={currentCategoryConfig.iconName} size={13} color={currentCategoryConfig.color} className="shrink-0" />
-                            <span>{currentCategoryConfig.name.split(' / ')[0]}</span>
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex justify-between items-center text-xs border-t border-border/20 pt-1.5">
-                        <span className="text-muted font-jakarta">Coordenadas:</span>
-                        <span className="font-mono text-foreground/80 text-[10.5px] flex items-center gap-1">
-                          <MapPin size={10} className="shrink-0 text-muted" />
-                          <span>{lat.toFixed(5)}, {lng.toFixed(5)}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <ReportFormFields
-                      title={title}
-                      description={description}
-                      images={images}
-                      onChangeTitle={setTitle}
-                      onChangeDescription={setDescription}
-                      onChangeImages={setImages}
-                      errors={errors}
-                    />
-                  </form>
-                )}
-
-                {/* Mensaje de error general de la API */}
-                {apiError && (
-                  <div className="bg-rose-500/10 border border-rose-500/25 p-3 rounded-lg flex flex-col gap-1 select-none animate-slide-down shrink-0">
-                    <span className="font-jakarta text-[11px] font-bold text-rose-400 flex items-center gap-1">
-                      <AlertOctagon size={13} className="shrink-0" />
-                      <span>Ocurrió un inconveniente:</span>
-                    </span>
-                    <p className="font-jakarta text-[10.5px] text-rose-300/90 leading-normal">
-                      {apiError}
-                    </p>
-                  </div>
-                )}
-
-                {/* Nota de privacidad / autoría */}
-                {(step === 2 || step === 3) && (
-                  <div className="flex items-center justify-center gap-1.5 text-center select-none py-1 border-t border-border/10 mt-1 shrink-0">
-                    {user ? (
-                      <span className="font-jakarta text-[9.5px] text-emerald-400/80 flex items-center gap-1.5 justify-center">
-                        <BadgeCheck size={11} className="shrink-0" />
-                        <span>Reportando como <strong>{profile?.displayName || user.displayName || 'Vecino Registrado'}</strong> · Vecino Verificado</span>
-                      </span>
-                    ) : (
-                      <span className="font-jakarta text-[9.5px] text-muted flex items-center gap-1.5 justify-center">
-                        <Lock size={11} className="text-accent shrink-0" />
-                        <span>Tu reporte es 100% anónimo. Leé nuestra{' '}</span>
-                        <Link
-                          href="/privacidad"
-                          target="_blank"
-                          className="text-accent hover:underline font-bold"
+              {/* Paso 3: Campos de Texto (Formulario Completo) */}
+              {step === 3 && (
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4 animate-fade-in">
+                  {/* Resumen visual de los pasos previos */}
+                  <div className="bg-surface-1/40 border border-border/30 rounded-lg p-3 flex flex-col gap-2 shrink-0 select-none">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted font-jakarta">Incidente:</span>
+                      {currentCategoryConfig && (
+                        <span 
+                          className="font-bold flex items-center gap-1.5"
+                          style={{ color: currentCategoryConfig.color }}
                         >
-                          Política de Privacidad
-                        </Link>
-                      </span>
-                    )}
+                          <CategoryIcon name={currentCategoryConfig.iconName} size={13} color={currentCategoryConfig.color} className="shrink-0" />
+                          <span>{currentCategoryConfig.name.split(' / ')[0]}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* BARRA DE CONTROLES INFERIORES */}
-              <div className="flex items-center gap-3 border-t border-border/60 pt-3 mt-auto shrink-0 select-none">
-                
-                {/* Botón Volver */}
-                {step > 1 && !isSubmitting && (
-                  <button
-                    type="button"
-                    onClick={handlePrevStep}
-                    className="btn btn-ghost flex-1 h-11 text-xs font-bold flex items-center justify-center gap-1"
-                  >
-                    <ChevronLeft size={14} />
-                    <span>Volver</span>
-                  </button>
-                )}
+                  <ReportFormFields
+                    title={title}
+                    description={description}
+                    images={images}
+                    onChangeTitle={setTitle}
+                    onChangeDescription={setDescription}
+                    onChangeImages={setImages}
+                    errors={errors}
+                  />
+                </form>
+              )}
 
-                {/* Botón Siguiente / Enviar */}
-                {step === 1 && (
-                  <button
-                    type="button"
-                    onClick={handleNextStep}
-                    disabled={!selectedCategory}
-                    className={`btn flex-1 h-11 text-xs font-bold font-outfit transition-all flex items-center justify-center gap-1 ${
-                      selectedCategory 
-                        ? 'btn-primary' 
-                        : 'bg-surface-3 text-muted/40 cursor-not-allowed border border-border'
-                    }`}
-                  >
-                    <span>Siguiente</span>
-                    <ChevronRight size={14} />
-                  </button>
-                )}
+              {/* Mensaje de error general de la API */}
+              {apiError && (
+                <div className="bg-rose-500/10 border border-rose-500/25 p-3 rounded-lg flex flex-col gap-1 select-none animate-slide-down shrink-0">
+                  <span className="font-jakarta text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                    <AlertOctagon size={13} className="shrink-0" />
+                    <span>Ocurrió un inconveniente:</span>
+                  </span>
+                  <p className="font-jakarta text-[10.5px] text-rose-300/90 leading-normal">
+                    {apiError}
+                  </p>
+                </div>
+              )}
 
-                {step === 2 && (
-                  <button
-                    type="button"
-                    onClick={handleNextStep}
-                    className="btn btn-primary flex-1 h-11 text-xs font-bold font-outfit flex items-center justify-center gap-1"
-                  >
-                    <span>Confirmar Ubicación</span>
-                    <ChevronRight size={14} />
-                  </button>
-                )}
+              {/* Nota de privacidad / autoría */}
+              {(step === 2 || step === 3) && (
+                <div className="flex items-center justify-center gap-1.5 text-center select-none py-1 border-t border-border/10 mt-1 shrink-0">
+                  {user ? (
+                    <span className="font-jakarta text-[9.5px] text-emerald-400/80 flex items-center gap-1.5 justify-center">
+                      <BadgeCheck size={11} className="shrink-0" />
+                      <span>Reportando como <strong>{profile?.displayName || user.displayName || 'Vecino Registrado'}</strong> · Vecino Verificado</span>
+                    </span>
+                  ) : (
+                    <span className="font-jakarta text-[9.5px] text-muted flex items-center gap-1.5 justify-center">
+                      <Lock size={11} className="text-accent shrink-0" />
+                      <span>Tu reporte es 100% anónimo. Leé nuestra{' '}</span>
+                      <Link
+                        href="/privacidad"
+                        target="_blank"
+                        className="text-accent hover:underline font-bold"
+                      >
+                        Política de Privacidad
+                      </Link>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
-                {step === 3 && (
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={isSubmitting || title.trim().length < 5}
-                    className={`btn flex-1 h-11 text-xs font-bold font-outfit transition-all flex items-center justify-center gap-2 ${
-                      title.trim().length >= 5 && !isSubmitting
-                        ? 'btn-primary'
-                        : 'bg-surface-3 text-muted/40 cursor-not-allowed border border-border'
-                    }`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
-                        <span>Registrando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Bell size={14} className="shrink-0 animate-pulse-slow" />
-                        <span>Registrar Alerta</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </>
-          )}
+            {/* BARRA DE CONTROLES INFERIORES (Fijos al fondo, fuera del scroll) */}
+            <div className="flex items-center gap-3 border-t border-border/60 pt-3 mt-auto shrink-0 select-none bg-surface-2">
+              
+              {/* Botón Volver */}
+              {step > 1 && !isSubmitting && (
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="btn btn-ghost flex-1 h-11 text-xs font-bold flex items-center justify-center gap-1"
+                >
+                  <ChevronLeft size={14} />
+                  <span>Volver</span>
+                </button>
+              )}
 
-        </div>
+              {/* Botón Siguiente / Enviar */}
+              {step === 1 && (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  disabled={!selectedCategory}
+                  className={`btn flex-1 h-11 text-xs font-bold font-outfit transition-all flex items-center justify-center gap-1 ${
+                    selectedCategory 
+                      ? 'btn-primary' 
+                      : 'bg-surface-3 text-muted/40 cursor-not-allowed border border-border'
+                  }`}
+                >
+                  <span>Siguiente</span>
+                  <ChevronRight size={14} />
+                </button>
+              )}
+
+              {step === 2 && (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="btn btn-primary flex-1 h-11 text-xs font-bold font-outfit flex items-center justify-center gap-1"
+                >
+                  <span>Confirmar Ubicación</span>
+                  <ChevronRight size={14} />
+                </button>
+              )}
+
+              {step === 3 && (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className={`btn flex-1 h-11 text-xs font-bold font-outfit transition-all flex items-center justify-center gap-2 ${
+                    isSubmitting
+                      ? 'bg-surface-3 text-muted/40 cursor-not-allowed border border-border'
+                      : 'btn-primary'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
+                      <span>Registrando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell size={14} className="shrink-0 animate-pulse-slow" />
+                      <span>Registrar Alerta</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </>
   );

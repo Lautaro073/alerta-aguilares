@@ -234,6 +234,8 @@ export default function ReportMiniMap({ lat, lng, onChangeLocation }: ReportMini
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            maxZoom={18}
+            maxNativeZoom={18}
           />
 
           {/* Recentrar el mapa cuando el usuario busca una dirección */}

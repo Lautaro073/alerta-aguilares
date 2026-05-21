@@ -249,9 +249,21 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Verificación de Origen (CSRF y CORS Básico)
     const origin = request.headers.get('origin');
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
     
     if (env.NODE_ENV === 'production') {
-      if (!origin || origin !== env.ALLOWED_ORIGIN) {
+      const cleanOrigin = origin?.replace(/\/$/, '');
+      const cleanAllowed = env.ALLOWED_ORIGIN?.replace(/\/$/, '');
+      const selfOrigin = host ? `https://${host}`.replace(/\/$/, '') : null;
+      const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}`.replace(/\/$/, '') : null;
+
+      const isAllowed = 
+        (cleanOrigin && cleanOrigin === cleanAllowed) ||
+        (cleanOrigin && cleanOrigin === selfOrigin) ||
+        (cleanOrigin && cleanOrigin === vercelUrl);
+
+      if (!isAllowed) {
+        console.warn(`[CORS Blocked] Origin: ${origin}, Allowed: ${env.ALLOWED_ORIGIN}, Host: ${host}, Vercel: ${process.env.VERCEL_URL}`);
         return forbidden('Acceso denegado: Origen de solicitud no autorizado.');
       }
     }

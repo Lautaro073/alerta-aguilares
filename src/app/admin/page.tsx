@@ -231,7 +231,7 @@ export default function AdminDashboard() {
             className="btn btn-ghost py-1.5 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <ArrowLeft size={13} />
-            <span className="hidden xs:inline">Volver al Mapa</span>
+            <span className="hidden sm:inline">Volver al Mapa</span>
           </Link>
         </div>
       </header>

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Shield } from 'lucide-react';
+import { Shield, Flame } from 'lucide-react';
 import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { AGUILARES_BOUNDS } from '@/lib/constants/map';
@@ -27,13 +27,18 @@ const bounds = L.latLngBounds(cornerSouthWest, cornerNorthEast);
  * Subcomponente de escucha para rastrear las coordenadas del centro del mapa reactivamente.
  * Cuando el usuario mueve la cámara, guardamos la ubicación para que el pin nuevo se dibuje allí.
  */
-function MapListener({ onCenterChange }: { onCenterChange: (lat: number, lng: number) => void }) {
+function MapListener({
+  onCenterChange,
+}: {
+  onCenterChange: (lat: number, lng: number) => void;
+}) {
   const map = useMapEvents({
     moveend() {
       const center = map.getCenter();
       onCenterChange(center.lat, center.lng);
     },
   });
+
   return null;
 }
 
@@ -52,6 +57,7 @@ export default function MapViewInner() {
     categories: selectedCategories,
     view: selectedView,
     timeframe: 'all', // El mapa principal siempre muestra todos los reportes activos en vivo
+    bounds: null,     // Consulta global estática para toda la ciudad (cero reconexiones y 60 FPS estables)
   });
 
   // 2. Estados locales para interactividad
@@ -68,7 +74,7 @@ export default function MapViewInner() {
 
   return (
     <div className="w-full h-full relative" style={{ height: '100dvh' }}>
-      
+
       {/* Controles del mapa superior (Banda flotante con filters y view selectors) */}
       <MapControls
         selectedCategories={selectedCategories}
@@ -94,10 +100,14 @@ export default function MapViewInner() {
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          maxZoom={18}
+          maxNativeZoom={18}
         />
 
         {/* Escuchador de posición de cámara */}
-        <MapListener onCenterChange={handleCenterChange} />
+        <MapListener
+          onCenterChange={handleCenterChange}
+        />
 
         {/* RENDERIZADO CONDICIONAL DE CAPAS SEGÚN MODO */}
         {selectedView === 'markers' ? (
@@ -134,32 +144,34 @@ export default function MapViewInner() {
 
       {/* Contenedor de Estado y Leyendas (Esquina inferior izquierda) */}
       <div className="absolute bottom-6 left-6 z-[1000] flex flex-col gap-3 pointer-events-none">
-        
+
         {/* Leyenda del Mapa de Calor (Temperatura) */}
         {selectedView === 'heatmap' && (
-          <div className="glass px-4 py-3 max-w-[280px] sm:max-w-xs shadow-lg animate-slide-up flex flex-col gap-2 select-none border border-white/10 pointer-events-auto">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+          <div className="glass px-4 py-3.5 max-w-[280px] sm:max-w-xs shadow-lg animate-slide-up flex flex-col gap-2.5 select-none border border-white/10 pointer-events-auto">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-orange-500/10 border border-orange-500/25 flex items-center justify-center text-orange-400">
+                <Flame size={14} className="animate-pulse" />
+              </div>
               <span className="font-outfit text-xs font-extrabold tracking-wide uppercase text-foreground">
-                Mapa de Calor
+                Zonas más activas
               </span>
             </div>
-            
+
             <p className="font-jakarta text-[10.5px] text-muted leading-relaxed">
-              Visualización de densidad de incidentes en tiempo real. Los colores indican la concentración acumulada de reportes activos en la zona.
+              Muestra las partes de la ciudad con más alertas en este momento. Los sectores más rojos concentran mayor cantidad de reportes.
             </p>
 
             {/* Barra de Temperatura de Color */}
-            <div className="flex flex-col gap-1 mt-1">
-              <div 
-                className="h-2 w-full rounded shadow-inner" 
+            <div className="flex flex-col gap-1.5 mt-1.5">
+              <div
+                className="h-2.5 w-full rounded-full shadow-inner"
                 style={{
                   background: 'linear-gradient(to right, #3b82f6 0%, #10b981 35%, #f59e0b 70%, #ef4444 100%)'
                 }}
               />
-              <div className="flex items-center justify-between text-[9px] font-mono font-semibold text-muted/80">
-                <span>Bajo (Frío)</span>
-                <span>Alto (Caliente)</span>
+              <div className="flex items-center justify-between text-[9.5px] font-jakarta font-bold text-muted/90">
+                <span>Pocas alertas</span>
+                <span>Muchas alertas</span>
               </div>
             </div>
           </div>

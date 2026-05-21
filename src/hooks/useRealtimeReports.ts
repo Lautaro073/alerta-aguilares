@@ -9,6 +9,7 @@ interface UseRealtimeReportsOptions {
   categories?: CategoryId[];
   view?: 'markers' | 'heatmap';
   timeframe?: TimeframeId;
+  bounds?: { south: number; north: number; west: number; east: number } | null;
 }
 
 type HeatmapPoint = { lat: number; lng: number };
@@ -31,6 +32,7 @@ export function useRealtimeReports({
   categories = [],
   view = 'markers',
   timeframe = 'all',
+  bounds = null,
 }: UseRealtimeReportsOptions = {}) {
   type DataType = typeof view extends 'heatmap' ? HeatmapPoint[] : Report[];
 
@@ -41,8 +43,24 @@ export function useRealtimeReports({
   const [error, setError] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
-  // La key de dependencia: serializar categorías, vista y timeframe para detectar cambios
-  const filterKey = `${view}:${timeframe}:${[...categories].sort().join(',')}`;
+  // Calculamos límites acolchados y redondeados a 2 decimales (~1.1 km)
+  // para estabilizar la clave de conexión y prevenir reconexiones innecesarias.
+  let boundsKey = 'none';
+  let paddedBounds: { south: number; north: number; west: number; east: number } | null = null;
+
+  if (bounds) {
+    const latPad = Math.abs(bounds.north - bounds.south) * 0.3;
+    const lngPad = Math.abs(bounds.east - bounds.west) * 0.3;
+    paddedBounds = {
+      south: bounds.south - latPad,
+      north: bounds.north + latPad,
+      west: bounds.west - lngPad,
+      east: bounds.east + lngPad,
+    };
+    boundsKey = `${paddedBounds.south.toFixed(2)},${paddedBounds.north.toFixed(2)},${paddedBounds.west.toFixed(2)},${paddedBounds.east.toFixed(2)}`;
+  }
+
+  const filterKey = `${view}:${timeframe}:${boundsKey}:${[...categories].sort().join(',')}`;
 
   useEffect(() => {
     // Cerrar conexión anterior sin limpiar `reports` (mantener datos visibles)
@@ -59,6 +77,12 @@ export function useRealtimeReports({
     categories.forEach((c) => params.append('category', c));
     if (timeframe && timeframe !== 'all') {
       params.append('timeframe', timeframe);
+    }
+    if (paddedBounds) {
+      params.append('south', paddedBounds.south.toString());
+      params.append('north', paddedBounds.north.toString());
+      params.append('west', paddedBounds.west.toString());
+      params.append('east', paddedBounds.east.toString());
     }
     const url = `/api/reports/stream?${params.toString()}`;
 

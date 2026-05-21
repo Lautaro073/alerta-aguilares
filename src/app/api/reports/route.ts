@@ -8,6 +8,7 @@ import { hashValue } from '@/lib/server/hash';
 import { env } from '@/lib/server/env';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { verifyAppCheckToken } from '@/lib/server/appCheck';
+import { encodeGeohash, getGeohashRangesForBounds } from '@/lib/utils/geoUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,50 @@ function getClientIp(request: Request): string {
   return '127.0.0.1';
 }
 
+let migrationTriggered = false;
+
+/**
+ * Realiza una migración asíncrona en segundo plano para calcular y guardar
+ * el campo `geohash` en todos los reportes existentes que carezcan de él.
+ */
+async function runBackgroundMigration() {
+  if (migrationTriggered) return;
+  migrationTriggered = true;
+
+  try {
+    const snapshot = await adminDb.collection('reports').get();
+    const unmigrated = snapshot.docs.filter((doc) => {
+      const data = doc.data();
+      return !data.geohash && data.lat !== undefined && data.lng !== undefined;
+    });
+
+    if (unmigrated.length === 0) {
+      return;
+    }
+
+    console.log(`[Migration] Detectados ${unmigrated.length} reportes antiguos sin geohash. Iniciando migración...`);
+
+    // Procesar en lotes de 500 (límite máximo de escrituras por batch en Firestore)
+    const chunks = [];
+    for (let i = 0; i < unmigrated.length; i += 500) {
+      chunks.push(unmigrated.slice(i, i + 500));
+    }
+
+    for (const chunk of chunks) {
+      const batch = adminDb.batch();
+      chunk.forEach((doc) => {
+        const data = doc.data();
+        const computedGeohash = encodeGeohash(data.lat, data.lng);
+        batch.update(doc.ref, { geohash: computedGeohash });
+      });
+      await batch.commit();
+    }
+    console.log(`[Migration] Migración de geohashes finalizada exitosamente para ${unmigrated.length} reportes.`);
+  } catch (error) {
+    console.error('[Migration] Error durante la migración retroactiva de geohashes:', error);
+  }
+}
+
 /**
  * GET /api/reports
  * 
@@ -35,6 +80,11 @@ function getClientIp(request: Request): string {
  * - heatmap (vista simplificada de calor {lat, lng}, límite 1000)
  */
 export async function GET(request: NextRequest) {
+  // Disparar migración retroactiva en segundo plano de manera no bloqueante
+  runBackgroundMigration().catch((err) => {
+    console.error('[Migration] Error no controlado en la migración:', err);
+  });
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -49,45 +99,88 @@ export async function GET(request: NextRequest) {
       view: viewParam || undefined,
       limit: limitParam || undefined,
       timeframe: searchParams.get('timeframe') || undefined,
+      south: searchParams.get('south') || undefined,
+      north: searchParams.get('north') || undefined,
+      west: searchParams.get('west') || undefined,
+      east: searchParams.get('east') || undefined,
     });
 
     if (!parsedQuery.success) {
       return badRequest('Parámetros de consulta inválidos.', parsedQuery.error.format());
     }
 
-    const { category, view, limit, timeframe } = parsedQuery.data;
+    const { category, view, limit, timeframe, south, north, west, east } = parsedQuery.data;
 
     // Determinar límites máximos por vista
     const maxAllowedLimit = view === 'heatmap' ? 1000 : 500;
     const finalLimit = limit ? Math.min(limit, maxAllowedLimit) : maxAllowedLimit;
 
-    // Construir consulta a Firestore
-    let query: FirebaseFirestore.Query = adminDb.collection('reports');
+    let rawDocsSnapshot: Array<{ id: string; data: FirebaseFirestore.DocumentData }> = [];
 
-    // Filtrar por categorías si se especifican
-    if (category && category.length > 0) {
-      query = query.where('category', 'in', category);
+    // Si vienen límites, ejecutar consultas basadas en Geohashes
+    const hasBounds = south !== undefined && north !== undefined && west !== undefined && east !== undefined;
+
+    if (hasBounds) {
+      const ranges = getGeohashRangesForBounds(south, north, west, east);
+
+      const promises = ranges.map(([start, end]) => {
+        let q: FirebaseFirestore.Query = adminDb.collection('reports');
+        if (category && category.length > 0) {
+          q = q.where('category', 'in', category);
+        }
+        q = q.where('status', '==', 'ACTIVE');
+        if (timeframe && timeframe !== 'all') {
+          const days = timeframe === '7d' ? 7 : 30;
+          const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+          q = q.where('createdAt', '>=', thresholdDate);
+        }
+        return q.orderBy('geohash').startAt(start).endAt(end).get();
+      });
+
+      const snapshots = await Promise.all(promises);
+      const docMap = new Map<string, FirebaseFirestore.DocumentData>();
+
+      snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((doc) => {
+          docMap.set(doc.id, doc.data());
+        });
+      });
+
+      // Filtrar exactamente por bounding box y mapear
+      docMap.forEach((data, id) => {
+        const latVal = data.lat as number;
+        const lngVal = data.lng as number;
+        if (latVal >= south && latVal <= north && lngVal >= west && lngVal <= east) {
+          rawDocsSnapshot.push({ id, data });
+        }
+      });
+
+      // Ordenar por fecha descendente
+      rawDocsSnapshot.sort((a, b) => b.data.createdAt.localeCompare(a.data.createdAt));
+    } else {
+      // Búsqueda general sin límites (ej: para consola o listados)
+      let query: FirebaseFirestore.Query = adminDb.collection('reports');
+
+      if (category && category.length > 0) {
+        query = query.where('category', 'in', category);
+      }
+
+      query = query.where('status', '==', 'ACTIVE');
+
+      if (timeframe && timeframe !== 'all') {
+        const days = timeframe === '7d' ? 7 : 30;
+        const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+        query = query.where('createdAt', '>=', thresholdDate);
+      }
+
+      query = query.orderBy('createdAt', 'desc').limit(finalLimit);
+
+      const snapshot = await query.get();
+      rawDocsSnapshot = snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() }));
     }
 
-    // Por defecto filtramos por reportes activos
-    query = query.where('status', '==', 'ACTIVE');
+    const finalRawDocs = rawDocsSnapshot.slice(0, finalLimit);
 
-    // Filtrar por rango de tiempo (timeframe) si no es 'all'
-    if (timeframe && timeframe !== 'all') {
-      const days = timeframe === '7d' ? 7 : 30;
-      const thresholdDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      query = query.where('createdAt', '>=', thresholdDate);
-    }
-
-    // Ordenar por fecha de creación descendente (los más recientes primero)
-    query = query.orderBy('createdAt', 'desc');
-
-    // Aplicar límite
-    query = query.limit(finalLimit);
-
-    // Ejecutar consulta
-    const snapshot = await query.get();
-    
     // Configurar cabeceras de caché: 10 segundos cacheada pública, stale-while-revalidate de 30 segundos
     const headers = {
       'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
@@ -95,14 +188,10 @@ export async function GET(request: NextRequest) {
     };
 
     if (view === 'heatmap') {
-      // Retornar solo las coordenadas en la vista de mapa de calor
-      const heatmapData = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          lat: data.lat as number,
-          lng: data.lng as number,
-        };
-      });
+      const heatmapData = finalRawDocs.map((item) => ({
+        lat: item.data.lat as number,
+        lng: item.data.lng as number,
+      }));
 
       return Response.json(
         {
@@ -115,25 +204,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Vista predeterminada: 'markers' (retorna la información detallada del reporte)
-    const reports: Report[] = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        cityId: data.cityId || 'aguilares-tucuman',
-        lat: data.lat,
-        lng: data.lng,
-        category: data.category,
-        title: data.title,
-        description: data.description || null,
-        images: data.images || [],
-        status: data.status || 'ACTIVE',
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        resolvedAt: data.resolvedAt || null,
-        verifiedCount: data.verifiedCount || 0,
-        confirmedBy: data.confirmedBy || [],
-      } as Report;
-    });
+    const reports: Report[] = finalRawDocs.map((item) => ({
+      id: item.id,
+      cityId: item.data.cityId || 'aguilares-tucuman',
+      lat: item.data.lat,
+      lng: item.data.lng,
+      geohash: item.data.geohash || encodeGeohash(item.data.lat, item.data.lng),
+      category: item.data.category,
+      title: item.data.title,
+      description: item.data.description || null,
+      images: item.data.images || [],
+      status: item.data.status || 'ACTIVE',
+      createdAt: item.data.createdAt,
+      updatedAt: item.data.updatedAt,
+      resolvedAt: item.data.resolvedAt || null,
+      verifiedCount: item.data.verifiedCount || 0,
+      confirmedBy: item.data.confirmedBy || [],
+    } as Report));
 
     return Response.json(
       {
@@ -215,6 +302,7 @@ export async function POST(request: NextRequest) {
       cityId: 'aguilares-tucuman',
       lat,
       lng,
+      geohash: encodeGeohash(lat, lng),
       category,
       title,
       description: description || null,

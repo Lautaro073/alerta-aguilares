@@ -57,6 +57,10 @@ export const GetReportsQuerySchema = z.object({
   view: z.enum(['markers', 'heatmap']).default('markers'),
   limit: z.coerce.number().int().positive().max(2000).optional(),
   timeframe: z.enum(['7d', '30d', 'all']).default('all'),
+  south: z.coerce.number().optional(),
+  north: z.coerce.number().optional(),
+  west: z.coerce.number().optional(),
+  east: z.coerce.number().optional(),
 });
 
 export type GetReportsQueryInput = z.infer<typeof GetReportsQuerySchema>;

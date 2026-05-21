@@ -16,7 +16,6 @@ export async function getAppCheckToken(): Promise<string | null> {
     const result = await getToken(appCheckInstance, /* forceRefresh */ false);
     return result.token;
   } catch {
-    // App Check no inicializado o token no disponible — no bloquear el flujo
     return null;
   }
 }

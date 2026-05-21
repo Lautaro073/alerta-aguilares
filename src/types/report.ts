@@ -11,6 +11,7 @@ export interface Report {
   // Coordenadas geográficas
   lat: number;
   lng: number;
+  geohash?: string;
   
   // Categorización y contenido
   category: CategoryId;

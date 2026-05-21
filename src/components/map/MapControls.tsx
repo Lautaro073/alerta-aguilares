@@ -121,7 +121,7 @@ export default function MapControls({
             </button>
 
             {/* Selector de vistas (Markers vs Heatmap) */}
-            <div className="hidden xs:flex bg-background/80 border border-border p-0.5 rounded-pill relative overflow-hidden self-center h-10 w-32 md:w-44 select-none">
+            <div className="hidden sm:flex bg-background/80 border border-border p-0.5 rounded-pill relative overflow-hidden self-center h-10 w-32 md:w-44 select-none">
               <button
                 onClick={() => setView('markers')}
                 className={`flex-1 flex items-center justify-center gap-1 md:gap-1.5 font-outfit text-[10px] md:text-xs font-bold rounded-pill transition-all duration-300 relative z-10 ${

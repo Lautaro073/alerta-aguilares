@@ -7,11 +7,10 @@ import CategoryPicker from './CategoryPicker';
 import ReportFormFields from './ReportFormFields';
 import { CATEGORIES, CategoryId } from '@/lib/constants/categories';
 import { AGUILARES_BOUNDS } from '@/lib/constants/map';
-import { getVisitorId } from '@/lib/utils/fingerprint';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
 import { X, Check, AlertOctagon, Bell, ChevronLeft, ChevronRight, Lock, BadgeCheck } from 'lucide-react';
-import { getAppCheckToken } from '@/lib/firebase/appCheckClient';
+import { useCreateReport } from '@/features/reports/client/useCreateReport';
 
 // Importación dinámica de ReportMiniMap para prevenir fallos en SSR de Leaflet
 const ReportMiniMap = dynamic(() => import('./ReportMiniMap'), {
@@ -47,13 +46,12 @@ export default function ReportDrawer({
   const [images, setImages] = useState<string[]>([]);
 
   // Estados de carga, éxito y error
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [errors, setErrors] = useState<{ title?: string | undefined; description?: string | undefined }>({});
-  const [apiError, setApiError] = useState<string | null>(null);
 
   // Autenticación del vecino (para asociar autoría al reporte)
   const { user, profile } = useAuth();
+  const { createReport, isSubmitting, apiError, clearApiError } = useCreateReport(user);
 
   // Si no está abierto, no renderizar nada
   if (!isOpen) return null;
@@ -102,50 +100,22 @@ export default function ReportDrawer({
       setErrors({ title: titleError, description: descError });
       return;
     }
+    if (!selectedCategory) {
+      return;
+    }
 
     setErrors({});
-    setApiError(null);
-    setIsSubmitting(true);
+    clearApiError();
 
     try {
-      // 1. Obtener huella digital del visitante
-      const visitorId = await getVisitorId();
-
-      // 2. Obtener token de autenticación si el usuario está logueado
-      let authToken: string | null = null;
-      if (user) {
-        try {
-          authToken = await user.getIdToken();
-        } catch {
-          console.warn('[ReportDrawer] No se pudo obtener el token del usuario.');
-        }
-      }
-
-      // 3. Realizar petición POST con token opcional para autoría verificada
-      const appCheckToken = await getAppCheckToken();
-      const response = await fetch('/api/reports', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
-          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
-        },
-        body: JSON.stringify({
-          lat,
-          lng,
-          category: selectedCategory,
-          title: title.trim(),
-          description: description.trim() || null,
-          images,
-          fingerprintVisitorId: visitorId,
-        }),
+      await createReport({
+        lat,
+        lng,
+        category: selectedCategory,
+        title,
+        description,
+        images,
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || result.message || 'Ocurrió un error inesperado al enviar el reporte.');
-      }
 
       // Éxito
       setIsSuccess(true);
@@ -153,11 +123,7 @@ export default function ReportDrawer({
         onReportCreated();
       }
     } catch (err: unknown) {
-      console.error('🔴 [REPORT_DRAWER] Error de envío:', err);
-      const errorMessage = err instanceof Error ? err.message : 'No se pudo conectar con el servidor. Reintentá en unos momentos.';
-      setApiError(errorMessage);
-    } finally {
-      setIsSubmitting(false);
+      console.error('[ReportDrawer] Error de envio:', err);
     }
   };
 

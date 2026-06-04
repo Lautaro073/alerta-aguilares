@@ -1,16 +1,18 @@
 import { NextRequest } from 'next/server';
-import { adminDb, adminMessaging, adminAuth } from '@/lib/firebase/admin';
+import { adminDb, adminAuth } from '@/lib/firebase/admin';
 import { GetReportsQuerySchema, CreateReportSchema } from '@/lib/validators/report.schema';
 import { badRequest, tooManyRequests, serverError, forbidden } from '@/lib/server/response';
 import { Report, ReportPrivateMeta } from '@/types/report';
 import { applyRateLimitInTransaction } from '@/lib/utils/rateLimit';
 import { hashValue } from '@/lib/server/hash';
 import { env } from '@/lib/server/env';
-import { CATEGORIES } from '@/lib/constants/categories';
 import { verifyAppCheckToken } from '@/lib/server/appCheck';
-import { encodeGeohash, getGeohashRangesForBounds } from '@/lib/utils/geoUtils';
+import { encodeGeohash } from '@/lib/utils/geoUtils';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
+import { getPublicReportCacheHeaders, listPublicReports } from '@/features/reports/server/reportQueries';
+import { runReportGeohashMigrationOnce } from '@/features/reports/server/reportMaintenance';
+import { triggerReportPushNotifications } from '@/features/reports/server/reportNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,50 +31,6 @@ function getClientIp(request: Request): string {
   return '127.0.0.1';
 }
 
-let migrationTriggered = false;
-
-/**
- * Realiza una migración asíncrona en segundo plano para calcular y guardar
- * el campo `geohash` en todos los reportes existentes que carezcan de él.
- */
-async function runBackgroundMigration() {
-  if (migrationTriggered) return;
-  migrationTriggered = true;
-
-  try {
-    const snapshot = await adminDb.collection('reports').get();
-    const unmigrated = snapshot.docs.filter((doc) => {
-      const data = doc.data();
-      return !data.geohash && data.lat !== undefined && data.lng !== undefined;
-    });
-
-    if (unmigrated.length === 0) {
-      return;
-    }
-
-    console.log(`[Migration] Detectados ${unmigrated.length} reportes antiguos sin geohash. Iniciando migración...`);
-
-    // Procesar en lotes de 500 (límite máximo de escrituras por batch en Firestore)
-    const chunks = [];
-    for (let i = 0; i < unmigrated.length; i += 500) {
-      chunks.push(unmigrated.slice(i, i + 500));
-    }
-
-    for (const chunk of chunks) {
-      const batch = adminDb.batch();
-      chunk.forEach((doc) => {
-        const data = doc.data();
-        const computedGeohash = encodeGeohash(data.lat, data.lng);
-        batch.update(doc.ref, { geohash: computedGeohash });
-      });
-      await batch.commit();
-    }
-    console.log(`[Migration] Migración de geohashes finalizada exitosamente para ${unmigrated.length} reportes.`);
-  } catch (error) {
-    console.error('[Migration] Error durante la migración retroactiva de geohashes:', error);
-  }
-}
-
 /**
  * GET /api/reports
  * 
@@ -83,7 +41,7 @@ async function runBackgroundMigration() {
  */
 export async function GET(request: NextRequest) {
   // Disparar migración retroactiva en segundo plano de manera no bloqueante
-  runBackgroundMigration().catch((err) => {
+  runReportGeohashMigrationOnce().catch((err) => {
     console.error('[Migration] Error no controlado en la migración:', err);
   });
 
@@ -113,123 +71,15 @@ export async function GET(request: NextRequest) {
 
     const { category, view, limit, timeframe, south, north, west, east } = parsedQuery.data;
 
-    // Determinar límites máximos por vista
-    const maxAllowedLimit = view === 'heatmap' ? 1000 : 500;
-    const finalLimit = limit ? Math.min(limit, maxAllowedLimit) : maxAllowedLimit;
-
-    let rawDocsSnapshot: Array<{ id: string; data: FirebaseFirestore.DocumentData }> = [];
-
-    // Si vienen límites, ejecutar consultas basadas en Geohashes
-    const hasBounds = south !== undefined && north !== undefined && west !== undefined && east !== undefined;
-
-    if (hasBounds) {
-      const ranges = getGeohashRangesForBounds(south, north, west, east);
-
-      const promises = ranges.map(([start, end]) => {
-        let q: FirebaseFirestore.Query = adminDb.collection('reports');
-        if (category && category.length > 0) {
-          q = q.where('category', 'in', category);
-        }
-        q = q.where('status', '==', 'ACTIVE');
-        if (timeframe && timeframe !== 'all') {
-          const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
-          const thresholdDate = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-          q = q.where('createdAt', '>=', thresholdDate);
-        }
-        return q.orderBy('geohash').startAt(start).endAt(end).get();
-      });
-
-      const snapshots = await Promise.all(promises);
-      const docMap = new Map<string, FirebaseFirestore.DocumentData>();
-
-      snapshots.forEach((snapshot) => {
-        snapshot.docs.forEach((doc) => {
-          docMap.set(doc.id, doc.data());
-        });
-      });
-
-      // Filtrar exactamente por bounding box y mapear
-      docMap.forEach((data, id) => {
-        const latVal = data.lat as number;
-        const lngVal = data.lng as number;
-        if (latVal >= south && latVal <= north && lngVal >= west && lngVal <= east) {
-          rawDocsSnapshot.push({ id, data });
-        }
-      });
-
-      // Ordenar por fecha descendente
-      rawDocsSnapshot.sort((a, b) => b.data.createdAt.localeCompare(a.data.createdAt));
-    } else {
-      // Búsqueda general sin límites (ej: para consola o listados)
-      let query: FirebaseFirestore.Query = adminDb.collection('reports');
-
-      if (category && category.length > 0) {
-        query = query.where('category', 'in', category);
-      }
-
-      query = query.where('status', '==', 'ACTIVE');
-
-      if (timeframe && timeframe !== 'all') {
-        const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
-        const thresholdDate = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-        query = query.where('createdAt', '>=', thresholdDate);
-      }
-
-      query = query.orderBy('createdAt', 'desc').limit(finalLimit);
-
-      const snapshot = await query.get();
-      rawDocsSnapshot = snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() }));
-    }
-
-    const finalRawDocs = rawDocsSnapshot.slice(0, finalLimit);
-
-    // Configurar cabeceras de caché: 10 segundos cacheada pública, stale-while-revalidate de 30 segundos
-    const headers = {
-      'Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
-      'CDN-Cache-Control': 'public, max-age=10, stale-while-revalidate=30',
-    };
-
-    if (view === 'heatmap') {
-      const heatmapData = finalRawDocs.map((item) => ({
-        lat: item.data.lat as number,
-        lng: item.data.lng as number,
-      }));
-
-      return Response.json(
-        {
-          success: true,
-          count: heatmapData.length,
-          data: heatmapData,
-        },
-        { status: 200, headers }
-      );
-    }
-
-    // Vista predeterminada: 'markers' (retorna la información detallada del reporte)
-    const reports: Report[] = finalRawDocs.map((item) => ({
-      id: item.id,
-      cityId: item.data.cityId || DEFAULT_CITY_ID,
-      lat: item.data.lat,
-      lng: item.data.lng,
-      geohash: item.data.geohash || encodeGeohash(item.data.lat, item.data.lng),
-      category: item.data.category,
-      title: item.data.title,
-      description: item.data.description || null,
-      images: item.data.images || [],
-      status: item.data.status || 'ACTIVE',
-      createdAt: item.data.createdAt,
-      updatedAt: item.data.updatedAt,
-      resolvedAt: item.data.resolvedAt || null,
-      verifiedCount: item.data.verifiedCount || 0,
-    } as Report));
+    const data = await listPublicReports({ category, view, limit, timeframe, south, north, west, east });
 
     return Response.json(
       {
         success: true,
-        count: reports.length,
-        data: reports,
+        count: data.length,
+        data,
       },
-      { status: 200, headers }
+      { status: 200, headers: getPublicReportCacheHeaders() }
     );
 
   } catch (error) {
@@ -391,7 +241,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Trigger push notifications asynchronously (non-blocking)
-    triggerPushNotifications(newReport).catch((err) => {
+    triggerReportPushNotifications(newReport).catch((err) => {
       console.error('[FCM] Failed to trigger notifications asynchronously:', err);
     });
 
@@ -407,84 +257,5 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     return serverError('POST_REPORTS_ROUTE', error);
-  }
-}
-
-/**
- * Envía notificaciones push a todos los dispositivos suscritos de forma asíncrona.
- * Limpia los tokens que hayan expirado o no estén registrados.
- */
-async function triggerPushNotifications(report: Report) {
-  try {
-    const tokensSnapshot = await adminDb.collection('fcm_tokens').get();
-    if (tokensSnapshot.empty) {
-      return;
-    }
-
-    const tokens = tokensSnapshot.docs
-      .map((doc) => doc.data().token)
-      .filter((token): token is string => typeof token === 'string' && token.length > 0);
-
-    if (tokens.length === 0) {
-      return;
-    }
-
-    const categoryLabel = CATEGORIES[report.category as keyof typeof CATEGORIES]?.label || report.category;
-    const title = `🚨 Nueva Alerta: ${categoryLabel}`;
-    const body = report.title;
-    const url = `/?reportId=${report.id}`;
-
-    const response = await adminMessaging.sendEachForMulticast({
-      tokens,
-      data: {
-        title,
-        body,
-        url,
-      },
-      webpush: {
-        headers: {
-          Urgency: 'high',
-        },
-        notification: {
-          title,
-          body,
-          icon: '/icon-192.png',
-          badge: '/icon-192-maskable.png',
-          tag: 'nuevo-reporte',
-          data: {
-            url,
-          },
-        },
-      },
-    });
-
-    // Detectar tokens fallidos para eliminarlos
-    const tokensToDelete: string[] = [];
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success && resp.error) {
-        const code = resp.error.code;
-        const t = tokens[idx];
-        if (
-          t &&
-          (code === 'messaging/registration-token-not-registered' ||
-            code === 'messaging/invalid-argument')
-        ) {
-          tokensToDelete.push(t);
-        }
-      }
-    });
-
-    if (tokensToDelete.length > 0) {
-      const cleanupBatch = adminDb.batch();
-      tokensToDelete.forEach((token) => {
-        cleanupBatch.delete(adminDb.collection('fcm_tokens').doc(token));
-      });
-      await cleanupBatch.commit();
-      console.log(`[FCM] Se eliminaron ${tokensToDelete.length} tokens inválidos.`);
-    }
-
-    console.log(`[FCM] Éxito: ${response.successCount}, Fallos: ${response.failureCount}`);
-  } catch (error) {
-    console.error('[FCM] Error en triggerPushNotifications:', error);
   }
 }

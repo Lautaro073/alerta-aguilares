@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import NextImage from 'next/image';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -125,6 +126,7 @@ export default function IncidentPhotos({ urls }: IncidentPhotosProps) {
   };
 
   const activeUrl = urls[activeIndex];
+  if (!activeUrl) return null;
 
   return (
     <>
@@ -134,11 +136,14 @@ export default function IncidentPhotos({ urls }: IncidentPhotosProps) {
         className="relative w-full h-44 sm:h-52 bg-surface-1 rounded-lg overflow-hidden border border-border/80 shadow-md select-none group cursor-pointer"
       >
         {/* Contenedor de la Imagen */}
-        <div className="w-full h-full flex items-center justify-center overflow-hidden bg-black/20">
-          <img
+        <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black/20">
+          <NextImage
             src={activeUrl}
             alt={`Foto del incidente ${activeIndex + 1}`}
-            className="max-w-full max-h-full object-contain transition-transform duration-500 ease-out group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 100vw, 384px"
+            unoptimized
+            className="object-contain transition-transform duration-500 ease-out group-hover:scale-105"
             draggable="false"
           />
         </div>
@@ -276,10 +281,13 @@ export default function IncidentPhotos({ urls }: IncidentPhotosProps) {
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
           >
-            <img
+            <NextImage
               ref={imgRef}
               src={activeUrl}
               alt={`Zoom del incidente ${activeIndex + 1}`}
+              width={1600}
+              height={1200}
+              unoptimized
               onDoubleClick={handleDoubleClick}
               onClick={(e) => e.stopPropagation()}
               className="max-w-[95vw] max-h-[85vh] object-contain select-none select-none select-none pointer-events-auto"

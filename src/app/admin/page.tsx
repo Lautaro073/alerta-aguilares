@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, type ChangeEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Report } from '@/types/report';
 import { CATEGORIES } from '@/lib/constants/categories';
@@ -26,24 +26,27 @@ import {
   UserCircle,
 } from 'lucide-react';
 
+type AdminStatusFilter = 'ALL' | 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
+type AdminTimeframeFilter = 'all' | '7d' | '30d';
+
 export default function AdminDashboard() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'RESOLVED' | 'DUPLICATE'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
-  const [timeframeFilter, setTimeframeFilter] = useState<'all' | '7d' | '30d'>('all');
+  const [timeframeFilter, setTimeframeFilter] = useState<AdminTimeframeFilter>('all');
   
   // Estados de carga para las acciones individuales de moderación
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-  const fetchAdminReports = async () => {
+  const fetchAdminReports = useCallback(async () => {
     if (!user || !isAdmin) return;
 
-    setLoadingReports(true);
     try {
       const token = await user.getIdToken();
+      setLoadingReports(true);
       const response = await fetch('/api/admin/reports', {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -52,24 +55,27 @@ export default function AdminDashboard() {
       });
 
       if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
+        const result = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(result.error || 'No se pudieron cargar los reportes.');
       }
 
-      const result = await response.json();
+      const result = await response.json() as { data?: Report[] };
       setReports(result.data || []);
     } catch (err) {
       console.error('Error al cargar reportes de administracion:', err);
     } finally {
       setLoadingReports(false);
     }
-  };
+  }, [user, isAdmin]);
 
   // Cargar reportes via API admin para mantener Firestore cerrado al cliente.
   useEffect(() => {
-    void fetchAdminReports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isAdmin]);
+    const timer = window.setTimeout(() => {
+      void fetchAdminReports();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchAdminReports]);
 
   // Manejar el cambio de estado del reporte
   const handleUpdateStatus = async (reportId: string, newStatus: 'RESOLVED' | 'DUPLICATE' | 'ACTIVE') => {
@@ -321,7 +327,7 @@ export default function AdminDashboard() {
                 <Clock size={12} className="absolute left-2.5 text-muted pointer-events-none" />
                 <select
                   value={timeframeFilter}
-                  onChange={(e: any) => setTimeframeFilter(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setTimeframeFilter(e.target.value as AdminTimeframeFilter)}
                   className="bg-surface-1 border border-border rounded-lg py-1.5 pl-8 pr-2 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
                 >
                   <option value="all">Histórico</option>
@@ -335,7 +341,7 @@ export default function AdminDashboard() {
                 <Filter size={12} className="absolute left-2.5 text-muted pointer-events-none" />
                 <select
                   value={statusFilter}
-                  onChange={(e: any) => setStatusFilter(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value as AdminStatusFilter)}
                   className="bg-surface-1 border border-border rounded-lg py-1.5 pl-8 pr-2 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
                 >
                   <option value="ALL">Todos los Estados</option>

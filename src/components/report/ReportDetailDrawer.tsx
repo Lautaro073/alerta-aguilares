@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { Report } from '@/types/report';
 import StreetViewImage from './StreetViewImage';
@@ -40,18 +40,22 @@ function formatReportDate(isoString: string): string {
  */
 export default function ReportDetailDrawer({ report, onClose }: ReportDetailDrawerProps) {
   const { user } = useAuth();
-  const [currentReport, setCurrentReport] = useState<Report | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [hasConfirmedLocally, setHasConfirmedLocally] = useState(false);
+  const [localConfirmation, setLocalConfirmation] = useState<{
+    reportId: string;
+    verifiedCount: number;
+    confirmed: boolean;
+  } | null>(null);
 
-  // Sincronizar el reporte local cuando cambie la prop
-  useEffect(() => {
-    setCurrentReport(report);
-    setHasConfirmedLocally(false);
-  }, [report]);
+  if (!report) return null;
 
-  if (!report || !currentReport) return null;
+  const currentReport =
+    localConfirmation?.reportId === report.id
+      ? { ...report, verifiedCount: localConfirmation.verifiedCount }
+      : report;
+  const hasConfirmedLocally =
+    localConfirmation?.reportId === report.id ? localConfirmation.confirmed : false;
 
   // Filtrar solo las fotos válidas (excluyendo vectores/SVGs u otros formatos no fotográficos)
   const validPhotos = (currentReport.images || []).filter((url) => {
@@ -98,18 +102,14 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
         throw new Error('Error al confirmar el reporte.');
       }
 
-      const result = await response.json();
-      
+      const result = await response.json() as { verifiedCount: number; confirmed: boolean };
+
       // Actualización optimista del estado local
-      setCurrentReport((prev) => {
-        if (!prev) return null;
-        
-        return {
-          ...prev,
-          verifiedCount: result.verifiedCount,
-        };
+      setLocalConfirmation({
+        reportId: currentReport.id,
+        verifiedCount: result.verifiedCount,
+        confirmed: Boolean(result.confirmed),
       });
-      setHasConfirmedLocally(Boolean(result.confirmed));
 
     } catch (error) {
       console.error('Error al confirmar reporte:', error);

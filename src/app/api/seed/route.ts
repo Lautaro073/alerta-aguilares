@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { Report, ReportPrivateMeta } from '@/types/report';
 import { hashValue } from '@/lib/server/hash';
+import { CategoryId } from '@/lib/constants/categories';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * Ruta de desarrollo para sembrar la base de datos local con incidentes de prueba realistas en Aguilares.
  * Solo se permite su ejecución en entorno de desarrollo.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   // Proteger la ruta en entornos productivos
   if (process.env.NODE_ENV !== 'development') {
     return Response.json(
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
         cityId: 'aguilares-tucuman',
         lat: mock.lat,
         lng: mock.lng,
-        category: mock.category as any,
+        category: mock.category as CategoryId,
         title: mock.title,
         description: mock.description,
         images: [],

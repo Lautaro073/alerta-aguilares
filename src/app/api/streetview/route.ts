@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { badRequest, serverError } from '@/lib/server/response';
+import { badRequest } from '@/lib/server/response';
 import { env } from '@/lib/server/env';
 
 export const dynamic = 'force-dynamic';

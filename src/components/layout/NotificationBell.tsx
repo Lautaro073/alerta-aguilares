@@ -27,35 +27,21 @@ interface ToastData {
  * Gestiona los 4 estados del ciclo de vida del permiso de notificaciones del navegador.
  */
 export default function NotificationBell() {
-  const [bellState, setBellState] = useState<BellState>('loading');
+  const [bellState, setBellState] = useState<BellState>(() => {
+    if (typeof window === 'undefined') return 'loading';
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return 'unsupported';
+
+    const permission = Notification.permission as PermissionState;
+    if (permission === 'denied') return 'blocked';
+    if (permission === 'granted') return 'subscribed';
+    return 'idle';
+  });
   const [isAnimating, setIsAnimating] = useState(false);
   const [toastMessage, setToastMessage] = useState<ToastData | null>(null);
 
-  // Verificar soporte y estado inicial del permiso de notificaciones
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-      setBellState('unsupported');
-      return;
-    }
-
-    const permission = Notification.permission as PermissionState;
-    if (permission === 'denied') {
-      setBellState('blocked');
-    } else if (permission === 'granted') {
-      // Permiso ya concedido: registrar el token FCM silenciosamente en background
-      // para garantizar que siempre esté guardado en Firestore (idempotente)
-      setBellState('subscribed');
-      registerTokenSilently();
-    } else {
-      setBellState('idle');
-    }
-  }, []);
-
   // Registra el token FCM en Firestore de forma silenciosa (sin UI feedback).
   // Seguro de llamar múltiples veces: getToken() es idempotente y el endpoint usa merge:true.
-  const registerTokenSilently = async () => {
+  const registerTokenSilently = useCallback(async () => {
     try {
       const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
       if (!vapidKey) return;
@@ -77,7 +63,14 @@ export default function NotificationBell() {
     } catch {
       // Error silencioso — no interrumpe la UI
     }
-  };
+  }, []);
+
+  // Con permiso ya concedido, registrar el token FCM silenciosamente en background.
+  useEffect(() => {
+    if (bellState === 'subscribed') {
+      void registerTokenSilently();
+    }
+  }, [bellState, registerTokenSilently]);
 
   // Mostrar un toast de retroalimentación temporal
   const showToast = useCallback((icon: ReactNode, text: string, type: ToastData['type']) => {

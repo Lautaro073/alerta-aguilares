@@ -13,6 +13,10 @@ interface ReportMarkersProps {
   onSelectReport: (report: Report) => void;
 }
 
+interface MarkerCluster {
+  getChildCount: () => number;
+}
+
 /**
  * Genera un L.divIcon personalizado para Leaflet con una estética premium de alta fidelidad.
  * Utiliza renderToString de React para inyectar iconos vectoriales de Lucide
@@ -58,7 +62,7 @@ const createCategoryIcon = (category: CategoryId, color: string) => {
  * Crea un icono de cluster personalizado de alta fidelidad con auras y gradientes
  * que coinciden con el tema visual Sleek Dark Theme de la app.
  */
-const createClusterIcon = (cluster: any) => {
+const createClusterIcon = (cluster: MarkerCluster) => {
   const count = cluster.getChildCount();
   
   let color = '#4f7cff'; // Azul brillante por defecto (pocos incidentes)

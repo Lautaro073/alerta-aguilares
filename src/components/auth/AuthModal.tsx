@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { FirebaseError } from 'firebase/app';
 import { useAuth } from '@/hooks/useAuth';
 import { X, Mail, Lock, User, AlertCircle, Loader2, Shield } from 'lucide-react';
 
@@ -9,6 +10,10 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const subscribeToClientSnapshot = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
@@ -18,12 +23,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const mounted = useSyncExternalStore(
+    subscribeToClientSnapshot,
+    getClientSnapshot,
+    getServerSnapshot
+  );
 
   if (!isOpen || !mounted) return null;
 
@@ -42,9 +46,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setError(null);
       await signInWithGoogle();
       handleClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      if (err.code === 'auth/popup-closed-by-user') {
+      if (err instanceof FirebaseError && err.code === 'auth/popup-closed-by-user') {
         setError('Inicio de sesión cancelado por el usuario.');
       } else {
         setError('Error al iniciar sesión con Google. Intentá de nuevo.');
@@ -75,9 +79,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         await signUpWithEmail(email, password, displayName);
       }
       handleClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      switch (err.code) {
+      const code = err instanceof FirebaseError ? err.code : undefined;
+      switch (code) {
         case 'auth/user-not-found':
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
@@ -93,7 +98,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           setError('La contraseña es demasiado débil.');
           break;
         default:
-          setError(err.message || 'Ocurrió un error inesperado. Intentá de nuevo.');
+          setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado. Intentá de nuevo.');
       }
     } finally {
       setIsLoading(false);

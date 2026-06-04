@@ -14,6 +14,19 @@ interface HeatmapLayerProps {
   points: HeatmapPoint[];
 }
 
+type HeatLayerFactory = typeof L & {
+  heatLayer: (
+    latlngs: Array<[number, number, number]>,
+    options: {
+      radius: number;
+      blur: number;
+      maxZoom: number;
+      max: number;
+      gradient: Record<number, string>;
+    }
+  ) => L.Layer;
+};
+
 /**
  * Componente cliente secundario que renderiza una capa de mapa de calor dinámico sobre Leaflet.
  * 
@@ -27,10 +40,10 @@ export default function HeatmapLayer({ points }: HeatmapLayerProps) {
     if (!map) return;
 
     // Formatear las coordenadas con una intensidad base constante de 0.35 por punto (frío/azul-cyan por defecto)
-    const heatPoints = points.map((p) => [p.lat, p.lng, 0.35]);
+    const heatPoints: Array<[number, number, number]> = points.map((p) => [p.lat, p.lng, 0.35]);
 
     // Crear la capa de calor dinámica utilizando el constructor del plugin
-    const heatLayer = (L as any).heatLayer(heatPoints, {
+    const heatLayer = (L as HeatLayerFactory).heatLayer(heatPoints, {
       radius: 25,          // Radio de dispersión de cada punto (en píxeles)
       blur: 15,            // Desenfoque sutil para suavizar las intersecciones
       maxZoom: 1,          // Fijar en 1 para que la intensidad no cambie con el zoom del mapa

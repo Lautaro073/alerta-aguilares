@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Camera, X, Loader2, ImagePlus, AlertCircle } from 'lucide-react';
 import { getAppCheckToken } from '@/lib/firebase/appCheckClient';
 
@@ -123,9 +124,12 @@ export default function ImageUploader({
         {/* Renderizar imágenes subidas */}
         {images.map((url, idx) => (
           <div key={url} className="relative aspect-square rounded-lg border border-border overflow-hidden bg-surface-1 group animate-scale-in">
-            <img 
+            <Image
               src={url} 
               alt={`Foto ${idx + 1}`} 
+              fill
+              sizes="96px"
+              unoptimized
               className="w-full h-full object-cover" 
             />
             <button

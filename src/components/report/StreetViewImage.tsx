@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import NextImage from 'next/image';
 import { RotateCcw, RotateCw, Compass, Loader2 } from 'lucide-react';
 
@@ -9,65 +9,37 @@ interface StreetViewImageProps {
   lng: number;
 }
 
-// Las 8 direcciones cardinales/intermedias a precargar
-const HEADINGS = [0, 45, 90, 135, 180, 225, 270, 315];
 const HEADING_STEP = 45;
 
 /**
- * Componente de Street View con precarga de todas las orientaciones.
- * Al abrir, precarga silenciosamente las 8 imágenes (N/NE/E/SE/S/SO/O/NO)
- * para que la rotación sea completamente instantánea.
+ * Componente de Street View con carga bajo demanda.
+ * Evita precargar orientaciones que el usuario quizas nunca vea para reducir consumo de Street View Static API.
  */
 export default function StreetViewImage({ lat, lng }: StreetViewImageProps) {
   const [heading, setHeading] = useState(0);
-  const [loadedSet, setLoadedSet] = useState<Set<number>>(new Set());
-  const [hasError, setHasError] = useState(false);
-  const preloadRefs = useRef<HTMLImageElement[]>([]);
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
-  // Precargar las 8 orientaciones en cuanto cambian las coordenadas
-  useEffect(() => {
-    let mounted = true;
-
-    HEADINGS.forEach((h) => {
-      const img = new window.Image();
-
-      img.onload = () => {
-        if (mounted) setLoadedSet((prev) => new Set([...prev, h]));
-      };
-      img.onerror = () => {
-        if (mounted && h === 0) setHasError(true);
-      };
-
-      // Asignar src DESPUÉS de los handlers para evitar race conditions
-      img.src = `/api/streetview?lat=${lat}&lng=${lng}&heading=${h}`;
-      preloadRefs.current.push(img);
-    });
-
-    return () => {
-      mounted = false;
-      // Anular callbacks antes de cualquier limpieza para no disparar estados
-      preloadRefs.current.forEach((img) => {
-        img.onload = null;
-        img.onerror = null;
-      });
-      preloadRefs.current = [];
-    };
-  }, [lat, lng]);
+  const roundedLat = lat.toFixed(6);
+  const roundedLng = lng.toFixed(6);
+  const imageKey = `${roundedLat}:${roundedLng}:${heading}`;
+  const streetViewUrl = useMemo(
+    () => `/api/streetview?lat=${roundedLat}&lng=${roundedLng}&heading=${heading}`,
+    [roundedLat, roundedLng, heading]
+  );
 
   const rotateLeft = () => setHeading((h) => (h - HEADING_STEP + 360) % 360);
   const rotateRight = () => setHeading((h) => (h + HEADING_STEP) % 360);
 
-  // La imagen principal está lista cuando su heading fue precargado
-  const isCurrentLoaded = loadedSet.has(heading);
-  // Cuántas de las 8 imágenes ya están listas
-  const loadedCount = loadedSet.size;
-  const isInitialLoading = loadedCount === 0 && !hasError;
+  const isCurrentLoaded = loadedImages.has(imageKey);
+  const hasError = failedImages.has(imageKey);
+  const isLoading = !isCurrentLoaded && !hasError;
 
   return (
     <div className="relative w-full h-44 sm:h-52 bg-surface-1 rounded-lg overflow-hidden border border-border/80 shadow-md select-none">
 
       {/* Estado de carga inicial (esperando la primera imagen) */}
-      {isInitialLoading && (
+      {isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface-2/90 z-10">
           <Loader2 size={28} className="text-accent animate-spin" />
           <div className="flex flex-col items-center gap-0.5">
@@ -75,7 +47,7 @@ export default function StreetViewImage({ lat, lng }: StreetViewImageProps) {
               Obteniendo vista de calle...
             </span>
             <span className="font-jakarta text-[10px] text-muted">
-              Precargando orientaciones…
+              Cargando orientación {heading}°
             </span>
           </div>
         </div>
@@ -97,11 +69,17 @@ export default function StreetViewImage({ lat, lng }: StreetViewImageProps) {
       {!hasError && (
         <NextImage
           key={`${lat}-${lng}-${heading}`}
-          src={`/api/streetview?lat=${lat}&lng=${lng}&heading=${heading}`}
+          src={streetViewUrl}
           alt={`Street View ${heading}° — ${lat.toFixed(5)}, ${lng.toFixed(5)}`}
           fill
           sizes="(max-width: 640px) 100vw, 384px"
           unoptimized
+          onLoad={() => {
+            setLoadedImages((prev) => new Set(prev).add(imageKey));
+          }}
+          onError={() => {
+            setFailedImages((prev) => new Set(prev).add(imageKey));
+          }}
           className={`w-full h-full object-cover transition-opacity duration-200 ${
             isCurrentLoaded ? 'opacity-100' : 'opacity-0'
           }`}
@@ -117,18 +95,8 @@ export default function StreetViewImage({ lat, lng }: StreetViewImageProps) {
         </div>
       )}
 
-      {/* Barra de precarga inferior (progreso de las 8 imágenes) */}
-      {loadedCount > 0 && loadedCount < HEADINGS.length && (
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-surface-3 z-10 pointer-events-none">
-          <div
-            className="h-full bg-accent/60 transition-all duration-300"
-            style={{ width: `${(loadedCount / HEADINGS.length) * 100}%` }}
-          />
-        </div>
-      )}
-
       {/* Controles de rotación */}
-      {!hasError && loadedCount > 0 && (
+      {!hasError && (
         <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-20">
           <button
             onClick={rotateLeft}

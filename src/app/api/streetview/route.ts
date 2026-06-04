@@ -61,7 +61,7 @@ function getFallbackSvg(lat: number, lng: number, message = 'Vista de calle no d
  * GET /api/streetview
  * 
  * Proxy de seguridad para Google Maps Street View Static API.
- * Evita la exposición de la API Key en el cliente y ahorra costos mediante caché inteligente.
+ * Evita la exposición de la API Key en el cliente sin almacenar ni rehostear imágenes de Google Maps.
  */
 export async function GET(request: NextRequest) {
   let queryLat = 0;
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(googleStreetViewUrl, {
       method: 'GET',
-      next: { revalidate: 604800 }, // Cachear por 7 días en Next.js fetch cache si es aplicable
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -123,11 +123,10 @@ export async function GET(request: NextRequest) {
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Cabeceras de caché ultra eficientes para ahorrar costos: cachear por 7 días
+    // No almacenamos contenido de Street View: solo lo proxyamos para proteger la API key.
     const headers = {
       'Content-Type': contentType || 'image/jpeg',
-      'Cache-Control': 'public, max-age=604800, stale-while-revalidate=86400',
-      'CDN-Cache-Control': 'public, max-age=604800, stale-while-revalidate=86400',
+      'Cache-Control': 'no-store, must-revalidate',
     };
 
     return new Response(buffer, {

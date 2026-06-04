@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS reports (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
   city_id TEXT NOT NULL DEFAULT 'aguilares-tucuman',
   lat DOUBLE PRECISION NOT NULL,
   lng DOUBLE PRECISION NOT NULL,
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 CREATE TABLE IF NOT EXISTS public_feeds (
   city_id TEXT PRIMARY KEY,
   report_version BIGINT NOT NULL DEFAULT 0,
-  last_report_id UUID,
+  last_report_id TEXT,
   last_report_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -161,7 +161,7 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE OR REPLACE FUNCTION bump_public_feed(
   p_city_id TEXT,
-  p_report_id UUID,
+  p_report_id TEXT,
   p_happened_at TIMESTAMPTZ DEFAULT NOW()
 )
 RETURNS VOID AS $$
@@ -211,7 +211,7 @@ RETURNS TABLE(
   allowed BOOLEAN,
   remaining INTEGER,
   reset_at TIMESTAMPTZ,
-  report_id UUID
+  report_id TEXT
 ) AS $$
 DECLARE
   v_now TIMESTAMPTZ := NOW();
@@ -222,7 +222,7 @@ DECLARE
   v_ip_next_count INTEGER;
   v_fp_reset_at TIMESTAMPTZ;
   v_ip_reset_at TIMESTAMPTZ;
-  v_report_id UUID;
+  v_report_id TEXT;
   v_remaining INTEGER;
   v_reset_at TIMESTAMPTZ;
 BEGIN
@@ -247,7 +247,7 @@ BEGIN
     v_fp_reset_at := v_now + v_window_interval;
   ELSE
     IF v_fp.count >= p_max_reports_fp THEN
-      RETURN QUERY SELECT FALSE, 0, v_fp.window_start + v_window_interval, NULL::UUID;
+      RETURN QUERY SELECT FALSE, 0, v_fp.window_start + v_window_interval, NULL::TEXT;
       RETURN;
     END IF;
     v_fp_next_count := v_fp.count + 1;
@@ -259,7 +259,7 @@ BEGIN
     v_ip_reset_at := v_now + v_window_interval;
   ELSE
     IF v_ip.count >= p_max_reports_ip THEN
-      RETURN QUERY SELECT FALSE, 0, v_ip.window_start + v_window_interval, NULL::UUID;
+      RETURN QUERY SELECT FALSE, 0, v_ip.window_start + v_window_interval, NULL::TEXT;
       RETURN;
     END IF;
     v_ip_next_count := v_ip.count + 1;
@@ -330,7 +330,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION toggle_report_confirmation(
-  p_report_id UUID,
+  p_report_id TEXT,
   p_uid TEXT
 )
 RETURNS TABLE(verified_count INTEGER, confirmed BOOLEAN) AS $$

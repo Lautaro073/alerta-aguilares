@@ -9,6 +9,8 @@ import { env } from '@/lib/server/env';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { verifyAppCheckToken } from '@/lib/server/appCheck';
 import { encodeGeohash, getGeohashRangesForBounds } from '@/lib/utils/geoUtils';
+import { DEFAULT_CITY_ID } from '@/lib/constants/city';
+import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
 
 export const dynamic = 'force-dynamic';
 
@@ -206,7 +208,7 @@ export async function GET(request: NextRequest) {
     // Vista predeterminada: 'markers' (retorna la información detallada del reporte)
     const reports: Report[] = finalRawDocs.map((item) => ({
       id: item.id,
-      cityId: item.data.cityId || 'aguilares-tucuman',
+      cityId: item.data.cityId || DEFAULT_CITY_ID,
       lat: item.data.lat,
       lng: item.data.lng,
       geohash: item.data.geohash || encodeGeohash(item.data.lat, item.data.lng),
@@ -219,9 +221,6 @@ export async function GET(request: NextRequest) {
       updatedAt: item.data.updatedAt,
       resolvedAt: item.data.resolvedAt || null,
       verifiedCount: item.data.verifiedCount || 0,
-      confirmedBy: item.data.confirmedBy || [],
-      userId: item.data.userId || undefined,
-      userDisplayName: item.data.userDisplayName || undefined,
     } as Report));
 
     return Response.json(
@@ -346,7 +345,7 @@ export async function POST(request: NextRequest) {
     // Documento público
     const newReport: Report = {
       id: reportId,
-      cityId: 'aguilares-tucuman',
+      cityId: DEFAULT_CITY_ID,
       lat,
       lng,
       geohash: encodeGeohash(lat, lng),
@@ -379,6 +378,14 @@ export async function POST(request: NextRequest) {
     batch.set(adminDb.collection('report_private_meta').doc(reportId), privateMeta);
     
     await batch.commit();
+
+    await touchPublicReportsFeed({
+      cityId: newReport.cityId,
+      reportId,
+      createdAt: nowISO,
+    }).catch((err) => {
+      console.error('[POST /api/reports] No se pudo actualizar el feed publico:', err);
+    });
 
     // Trigger push notifications asynchronously (non-blocking)
     triggerPushNotifications(newReport).catch((err) => {

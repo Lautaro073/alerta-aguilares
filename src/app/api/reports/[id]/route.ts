@@ -1,91 +1,29 @@
 import { NextRequest } from 'next/server';
-import { adminDb, adminAuth } from '@/lib/firebase/admin';
+import { adminDb } from '@/lib/firebase/admin';
+import { verifyAdminRole } from '@/lib/server/adminAuth';
 import { serverError } from '@/lib/server/response';
+import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
+import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Verifica si el usuario autenticado tiene el rol de administrador.
- */
-async function verifyAdminRole(request: NextRequest): Promise<{ uid: string; isAdmin: boolean; errorResponse?: Response }> {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return {
-      uid: '',
-      isAdmin: false,
-      errorResponse: Response.json(
-        { success: false, error: 'No autorizado. Se requiere token Bearer.' },
-        { status: 401 }
-      ),
-    };
-  }
+type ReportStatus = 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
 
-  const token = authHeader.substring(7);
-  if (!token) {
-    return {
-      uid: '',
-      isAdmin: false,
-      errorResponse: Response.json(
-        { success: false, error: 'No autorizado. Token vacío.' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    const uid = decodedToken.uid;
-
-    // Buscar el rol del usuario en la colección 'users' de Firestore
-    const userDoc = await adminDb.collection('users').doc(uid).get();
-    if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
-      return {
-        uid,
-        isAdmin: false,
-        errorResponse: Response.json(
-          { success: false, error: 'Acceso denegado. Se requieren privilegios de administrador.' },
-          { status: 403 }
-        ),
-      };
-    }
-
-    return { uid, isAdmin: true };
-  } catch (err) {
-    console.error('Error al verificar privilegios de administrador:', err);
-    return {
-      uid: '',
-      isAdmin: false,
-      errorResponse: Response.json(
-        { success: false, error: 'Sesión inválida o expirada.' },
-        { status: 401 }
-      ),
-    };
-  }
-}
-
-/**
- * PATCH /api/reports/[id]
- * 
- * Permite a un administrador actualizar el estado de un reporte (ej. cambiar a RESOLVED o DUPLICATE).
- */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: reportId } = await params;
-
-    // 1. Verificar rol de administrador
     const { errorResponse } = await verifyAdminRole(request);
     if (errorResponse) return errorResponse;
 
-    // 2. Parsear el cuerpo de la petición
-    let body;
+    let body: { status?: ReportStatus };
     try {
       body = await request.json();
     } catch {
       return Response.json(
-        { success: false, error: 'Cuerpo de solicitud inválido. Se espera JSON.' },
+        { success: false, error: 'Cuerpo de solicitud invalido. Se espera JSON.' },
         { status: 400 }
       );
     }
@@ -93,15 +31,14 @@ export async function PATCH(
     const { status } = body;
     if (!status || !['ACTIVE', 'RESOLVED', 'DUPLICATE'].includes(status)) {
       return Response.json(
-        { success: false, error: 'Estado inválido. Debe ser ACTIVE, RESOLVED o DUPLICATE.' },
+        { success: false, error: 'Estado invalido. Debe ser ACTIVE, RESOLVED o DUPLICATE.' },
         { status: 400 }
       );
     }
 
-    // 3. Actualizar el reporte en Firestore
     const reportRef = adminDb.collection('reports').doc(reportId);
     const reportDoc = await reportRef.get();
-    
+
     if (!reportDoc.exists) {
       return Response.json(
         { success: false, error: 'El reporte no existe.' },
@@ -110,55 +47,47 @@ export async function PATCH(
     }
 
     const nowISO = new Date().toISOString();
-    const updateData: any = {
+    await reportRef.update({
       status,
       updatedAt: nowISO,
-    };
+      resolvedAt: status === 'RESOLVED' ? nowISO : null,
+    });
 
-    if (status === 'RESOLVED') {
-      updateData.resolvedAt = nowISO;
-    } else {
-      updateData.resolvedAt = null;
-    }
-
-    await reportRef.update(updateData);
+    await touchPublicReportsFeed({
+      cityId: reportDoc.data()?.cityId || DEFAULT_CITY_ID,
+      reportId,
+      createdAt: nowISO,
+    }).catch((err) => {
+      console.error('[PATCH /api/reports/[id]] No se pudo actualizar el feed publico:', err);
+    });
 
     return Response.json(
       {
         success: true,
-        message: `Estado del reporte actualizado a ${status} con éxito.`,
+        message: `Estado del reporte actualizado a ${status} con exito.`,
         data: { id: reportId, status },
       },
       { status: 200 }
     );
-
   } catch (error) {
     return serverError('PATCH_REPORT_STATUS', error);
   }
 }
 
-/**
- * DELETE /api/reports/[id]
- * 
- * Permite a un administrador eliminar de manera permanente un reporte y sus metadatos.
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: reportId } = await params;
-
-    // 1. Verificar rol de administrador
     const { errorResponse } = await verifyAdminRole(request);
     if (errorResponse) return errorResponse;
 
-    // 2. Eliminar el reporte y sus metadatos privados en un batch
     const reportRef = adminDb.collection('reports').doc(reportId);
     const metaRef = adminDb.collection('report_private_meta').doc(reportId);
+    const reportDoc = await reportRef.get();
 
-    const doc = await reportRef.get();
-    if (!doc.exists) {
+    if (!reportDoc.exists) {
       return Response.json(
         { success: false, error: 'El reporte no existe.' },
         { status: 404 }
@@ -170,6 +99,14 @@ export async function DELETE(
     batch.delete(metaRef);
     await batch.commit();
 
+    await touchPublicReportsFeed({
+      cityId: reportDoc.data()?.cityId || DEFAULT_CITY_ID,
+      reportId,
+      createdAt: new Date().toISOString(),
+    }).catch((err) => {
+      console.error('[DELETE /api/reports/[id]] No se pudo actualizar el feed publico:', err);
+    });
+
     return Response.json(
       {
         success: true,
@@ -177,7 +114,6 @@ export async function DELETE(
       },
       { status: 200 }
     );
-
   } catch (error) {
     return serverError('DELETE_REPORT', error);
   }

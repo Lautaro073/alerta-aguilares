@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { GetReportsQuerySchema } from '@/lib/validators/report.schema';
 import { Report } from '@/types/report';
 import { encodeGeohash, getGeohashRangesForBounds } from '@/lib/utils/geoUtils';
+import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
           }
           return {
             id: item.id,
-            cityId: item.data.cityId || 'aguilares-tucuman',
+            cityId: item.data.cityId || DEFAULT_CITY_ID,
             lat: item.data.lat,
             lng: item.data.lng,
             geohash: item.data.geohash || encodeGeohash(item.data.lat, item.data.lng),
@@ -108,7 +109,6 @@ export async function GET(request: NextRequest) {
             updatedAt: item.data.updatedAt,
             resolvedAt: item.data.resolvedAt || null,
             verifiedCount: item.data.verifiedCount || 0,
-            confirmedBy: item.data.confirmedBy || [],
           } as Report;
         });
 
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
               }
               return {
                 id: doc.id,
-                cityId: data.cityId || 'aguilares-tucuman',
+                cityId: data.cityId || DEFAULT_CITY_ID,
                 lat: data.lat,
                 lng: data.lng,
                 geohash: data.geohash || encodeGeohash(data.lat, data.lng),
@@ -199,7 +199,6 @@ export async function GET(request: NextRequest) {
                 updatedAt: data.updatedAt,
                 resolvedAt: data.resolvedAt || null,
                 verifiedCount: data.verifiedCount || 0,
-                confirmedBy: data.confirmedBy || [],
               } as Report;
             });
 

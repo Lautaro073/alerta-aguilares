@@ -43,10 +43,12 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
   const [currentReport, setCurrentReport] = useState<Report | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [hasConfirmedLocally, setHasConfirmedLocally] = useState(false);
 
   // Sincronizar el reporte local cuando cambie la prop
   useEffect(() => {
     setCurrentReport(report);
+    setHasConfirmedLocally(false);
   }, [report]);
 
   if (!report || !currentReport) return null;
@@ -71,8 +73,6 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
   const categoryConfig = CATEGORIES[currentReport.category];
   const categoryColor = categoryConfig?.color || '#9CA3AF';
   const categoryName = categoryConfig?.name || 'Reporte ciudadano';
-
-  const hasConfirmed = user && currentReport.confirmedBy?.includes(user.uid);
 
   const handleConfirmToggle = async () => {
     if (!user) {
@@ -103,22 +103,13 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
       // Actualización optimista del estado local
       setCurrentReport((prev) => {
         if (!prev) return null;
-        let newConfirmedBy = [...(prev.confirmedBy || [])];
         
-        if (result.confirmed) {
-          if (!newConfirmedBy.includes(user.uid)) {
-            newConfirmedBy.push(user.uid);
-          }
-        } else {
-          newConfirmedBy = newConfirmedBy.filter((uid) => uid !== user.uid);
-        }
-
         return {
           ...prev,
           verifiedCount: result.verifiedCount,
-          confirmedBy: newConfirmedBy,
         };
       });
+      setHasConfirmedLocally(Boolean(result.confirmed));
 
     } catch (error) {
       console.error('Error al confirmar reporte:', error);
@@ -220,14 +211,14 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
               onClick={handleConfirmToggle}
               disabled={isConfirming}
               className={`btn h-8 px-3.5 rounded-pill font-outfit text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer border ${
-                hasConfirmed
+                hasConfirmedLocally
                   ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 shadow shadow-emerald-500/5 hover:bg-emerald-500/25'
                   : 'bg-accent/10 border-accent/30 hover:bg-accent/20 text-accent hover:shadow-glow hover:shadow-accent/5'
               }`}
             >
               {isConfirming ? (
                 <Loader2 size={12} className="animate-spin" />
-              ) : hasConfirmed ? (
+              ) : hasConfirmedLocally ? (
                 <>
                   <Check size={12} className="shrink-0" />
                   <span>Validado</span>

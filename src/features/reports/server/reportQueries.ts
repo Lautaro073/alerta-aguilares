@@ -1,11 +1,10 @@
-import { adminDb } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { GetReportsQueryInput } from '@/lib/validators/report.schema';
-import { getGeohashRangesForBounds } from '@/lib/utils/geoUtils';
 import {
-  FirestoreReportDoc,
-  mapFirestoreDocForView,
-  mapFirestoreDocToReport,
+  mapSupabaseReportForView,
+  mapSupabaseReportToReport,
   ReportListItem,
+  SupabaseReportRow,
 } from './reportMapper';
 import { Report } from '@/types/report';
 
@@ -18,84 +17,88 @@ export function getPublicReportCacheHeaders() {
   return PUBLIC_REPORT_CACHE_HEADERS;
 }
 
-function applyCommonReportFilters(
-  query: FirebaseFirestore.Query,
-  filters: Pick<GetReportsQueryInput, 'category' | 'timeframe'>
-) {
-  const { category, timeframe } = filters;
-  let nextQuery = query;
+function getTimeframeThreshold(timeframe: GetReportsQueryInput['timeframe']) {
+  if (!timeframe || timeframe === 'all') return null;
 
-  if (category && category.length > 0) {
-    nextQuery = nextQuery.where('category', 'in', category);
-  }
-
-  nextQuery = nextQuery.where('status', '==', 'ACTIVE');
-
-  if (timeframe && timeframe !== 'all') {
-    const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
-    const thresholdDate = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-    nextQuery = nextQuery.where('createdAt', '>=', thresholdDate);
-  }
-
-  return nextQuery;
-}
-
-async function getPublicReportDocs(queryInput: GetReportsQueryInput): Promise<FirestoreReportDoc[]> {
-  const { category, limit, timeframe, south, north, west, east, view } = queryInput;
-  const maxAllowedLimit = view === 'heatmap' ? 1000 : 500;
-  const finalLimit = limit ? Math.min(limit, maxAllowedLimit) : maxAllowedLimit;
-  const hasBounds = south !== undefined && north !== undefined && west !== undefined && east !== undefined;
-
-  if (hasBounds) {
-    const ranges = getGeohashRangesForBounds(south, north, west, east);
-    const snapshots = await Promise.all(
-      ranges.map(([start, end]) => {
-        let q: FirebaseFirestore.Query = adminDb.collection('reports');
-        q = applyCommonReportFilters(q, { category, timeframe });
-        return q.orderBy('geohash').startAt(start).endAt(end).get();
-      })
-    );
-
-    const docMap = new Map<string, FirebaseFirestore.DocumentData>();
-    snapshots.forEach((snapshot) => {
-      snapshot.docs.forEach((doc) => {
-        docMap.set(doc.id, doc.data());
-      });
-    });
-
-    const docs: FirestoreReportDoc[] = [];
-    docMap.forEach((data, id) => {
-      const latVal = data.lat as number;
-      const lngVal = data.lng as number;
-      if (latVal >= south && latVal <= north && lngVal >= west && lngVal <= east) {
-        docs.push({ id, data });
-      }
-    });
-
-    return docs
-      .sort((a, b) => b.data.createdAt.localeCompare(a.data.createdAt))
-      .slice(0, finalLimit);
-  }
-
-  let q: FirebaseFirestore.Query = adminDb.collection('reports');
-  q = applyCommonReportFilters(q, { category, timeframe });
-  q = q.orderBy('createdAt', 'desc').limit(finalLimit);
-
-  const snapshot = await q.get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() }));
+  const hours = timeframe === '24h' ? 24 : timeframe === '7d' ? 7 * 24 : 30 * 24;
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 }
 
 export async function listPublicReports(queryInput: GetReportsQueryInput): Promise<ReportListItem[]> {
-  const docs = await getPublicReportDocs(queryInput);
-  return docs.map((doc) => mapFirestoreDocForView(doc.id, doc.data, queryInput.view));
+  const { category, limit, timeframe, south, north, west, east, view } = queryInput;
+  const maxAllowedLimit = view === 'heatmap' ? 1000 : 500;
+  const finalLimit = limit ? Math.min(limit, maxAllowedLimit) : maxAllowedLimit;
+  const thresholdDate = getTimeframeThreshold(timeframe);
+
+  let query = supabaseAdmin
+    .from('reports')
+    .select('*')
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: false })
+    .limit(finalLimit);
+
+  if (category && category.length > 0) {
+    query = query.in('category', category);
+  }
+
+  if (thresholdDate) {
+    query = query.gte('created_at', thresholdDate);
+  }
+
+  if (south !== undefined && north !== undefined && west !== undefined && east !== undefined) {
+    query = query
+      .gte('lat', south)
+      .lte('lat', north)
+      .gte('lng', west)
+      .lte('lng', east);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  return ((data || []) as SupabaseReportRow[]).map((row) => mapSupabaseReportForView(row, view));
 }
 
 export async function listAdminReports(): Promise<Report[]> {
-  const snapshot = await adminDb
-    .collection('reports')
-    .orderBy('createdAt', 'desc')
-    .limit(1000)
-    .get();
+  const { data, error } = await supabaseAdmin
+    .from('reports')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1000);
 
-  return snapshot.docs.map((doc) => mapFirestoreDocToReport(doc.id, doc.data()));
+  if (error) {
+    throw error;
+  }
+
+  return ((data || []) as SupabaseReportRow[]).map(mapSupabaseReportToReport);
+}
+
+export async function getReportCityId(reportId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('reports')
+    .select('city_id')
+    .eq('id', reportId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.city_id || null;
+}
+
+export async function getReportById(reportId: string): Promise<Report | null> {
+  const { data, error } = await supabaseAdmin
+    .from('reports')
+    .select('*')
+    .eq('id', reportId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? mapSupabaseReportToReport(data as SupabaseReportRow) : null;
 }

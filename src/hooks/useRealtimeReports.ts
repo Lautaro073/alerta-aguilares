@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
 import { CategoryId } from '@/lib/constants/categories';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
-import { db } from '@/lib/firebase/client';
+import { supabaseBrowser } from '@/lib/supabase/client';
 import { Report } from '@/types/report';
 import { TimeframeId } from './useMapFilter';
 import { useReports } from './useReports';
@@ -28,7 +27,6 @@ export function useRealtimeReports({
 
   const [isFeedConnected, setIsFeedConnected] = useState(false);
   const lastSeenVersionRef = useRef<number | null>(null);
-  const hasInitialFeedSnapshotRef = useRef(false);
 
   const { reports, count, error, isLoading, isRefetching, mutate } = useReports({
     categories,
@@ -54,38 +52,41 @@ export function useRealtimeReports({
 
   useEffect(() => {
     lastSeenVersionRef.current = null;
-    hasInitialFeedSnapshotRef.current = false;
   }, [filterKey]);
 
   useEffect(() => {
-    const feedRef = doc(db, 'public_feeds', DEFAULT_CITY_ID);
-    const unsubscribe = onSnapshot(
-      feedRef,
-      (snapshot) => {
-        setIsFeedConnected(true);
+    const channel = supabaseBrowser
+      .channel(`public-feed:${DEFAULT_CITY_ID}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'public_feeds',
+          filter: `city_id=eq.${DEFAULT_CITY_ID}`,
+        },
+        (payload) => {
+          setIsFeedConnected(true);
 
-        const version = snapshot.data()?.reportVersion;
-        if (typeof version !== 'number') {
-          return;
+          const version = (payload.new as { report_version?: number } | null)?.report_version;
+          if (typeof version !== 'number') {
+            return;
+          }
+
+          if (lastSeenVersionRef.current !== version) {
+            lastSeenVersionRef.current = version;
+            void mutate();
+          }
         }
+      )
+      .subscribe((status) => {
+        setIsFeedConnected(status === 'SUBSCRIBED');
+      });
 
-        if (!hasInitialFeedSnapshotRef.current) {
-          hasInitialFeedSnapshotRef.current = true;
-          lastSeenVersionRef.current = version;
-          return;
-        }
-
-        if (lastSeenVersionRef.current !== version) {
-          lastSeenVersionRef.current = version;
-          void mutate();
-        }
-      },
-      () => {
-        setIsFeedConnected(false);
-      }
-    );
-
-    return () => unsubscribe();
+    return () => {
+      void supabaseBrowser.removeChannel(channel);
+      setIsFeedConnected(false);
+    };
   }, [mutate]);
 
   return {

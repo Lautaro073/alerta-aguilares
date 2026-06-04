@@ -1,18 +1,14 @@
 import { NextRequest } from 'next/server';
-import { adminDb, adminAuth } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
 import { GetReportsQuerySchema, CreateReportSchema } from '@/lib/validators/report.schema';
 import { badRequest, tooManyRequests, serverError, forbidden } from '@/lib/server/response';
-import { Report, ReportPrivateMeta } from '@/types/report';
-import { applyRateLimitInTransaction } from '@/lib/utils/rateLimit';
 import { hashValue } from '@/lib/server/hash';
 import { env } from '@/lib/server/env';
 import { verifyAppCheckToken } from '@/lib/server/appCheck';
-import { encodeGeohash } from '@/lib/utils/geoUtils';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
-import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
-import { getPublicReportCacheHeaders, listPublicReports } from '@/features/reports/server/reportQueries';
-import { runReportGeohashMigrationOnce } from '@/features/reports/server/reportMaintenance';
+import { getPublicReportCacheHeaders, getReportById, listPublicReports } from '@/features/reports/server/reportQueries';
 import { triggerReportPushNotifications } from '@/features/reports/server/reportNotifications';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,17 +30,12 @@ function getClientIp(request: Request): string {
 /**
  * GET /api/reports
  * 
- * Obtiene los reportes geolocalizados de la base de datos de Firestore.
+ * Obtiene los reportes geolocalizados de Supabase.
  * Soporta filtrado por múltiples categorías y dos vistas de visualización:
  * - markers (vista detallada, límite 500)
  * - heatmap (vista simplificada de calor {lat, lng}, límite 1000)
  */
 export async function GET(request: NextRequest) {
-  // Disparar migración retroactiva en segundo plano de manera no bloqueante
-  runReportGeohashMigrationOnce().catch((err) => {
-    console.error('[Migration] Error no controlado en la migración:', err);
-  });
-
   try {
     const { searchParams } = new URL(request.url);
 
@@ -151,16 +142,18 @@ export async function POST(request: NextRequest) {
           const decodedToken = await adminAuth.verifyIdToken(token);
           const uid = decodedToken.uid;
           
-          // Buscar perfil del usuario en Firestore para obtener el displayName más actualizado
-          const userDoc = await adminDb.collection('users').doc(uid).get();
-          if (userDoc.exists) {
-            const userData = userDoc.data();
-            userId = uid;
-            userDisplayName = userData?.displayName || decodedToken.name || 'Vecino Registrado';
-          } else {
-            userId = uid;
-            userDisplayName = decodedToken.name || decodedToken.email?.split('@')[0] || 'Vecino Registrado';
+          const { data: userRow, error: userError } = await supabaseAdmin
+            .from('users')
+            .select('display_name')
+            .eq('uid', uid)
+            .maybeSingle();
+
+          if (userError) {
+            throw userError;
           }
+
+          userId = uid;
+          userDisplayName = userRow?.display_name || decodedToken.name || decodedToken.email?.split('@')[0] || 'Vecino Registrado';
         } catch (err) {
           console.warn('[POST /api/reports] Token enviado pero inválido o expirado:', err);
         }
@@ -172,73 +165,45 @@ export async function POST(request: NextRequest) {
     const ipHash = hashValue(ip);
     const fpHash = hashValue(fingerprintVisitorId);
 
-    // 5. Preparar la creación de documentos
-    const reportRef = adminDb.collection('reports').doc();
-    const reportId = reportRef.id;
-    const nowISO = new Date().toISOString();
-
-    // Autoría verificada (solo si se resolvió desde el servidor)
-    const authorshipFields: Partial<Report> = userId && userDisplayName
-      ? { userId, userDisplayName }
-      : {};
-
-    // Documento público
-    const newReport: Report = {
-      id: reportId,
-      cityId: DEFAULT_CITY_ID,
-      lat,
-      lng,
-      geohash: encodeGeohash(lat, lng),
-      category,
-      title,
-      description: description || null,
-      images: images || [],
-      status: 'ACTIVE',
-      createdAt: nowISO,
-      updatedAt: nowISO,
-      resolvedAt: null,
-      verifiedCount: 0,
-      confirmedBy: [],
-      ...authorshipFields,
-    };
-
-    // Documento de metadatos privados
-    const privateMeta: ReportPrivateMeta = {
-      reportId,
-      ipHash,
-      fingerprintHash: fpHash,
-      userAgent: request.headers.get('user-agent') || 'unknown',
-      origin: origin || request.headers.get('referer') || null,
-      createdAt: nowISO,
-    };
-
-    // 6. Transacción atómica para aplicar rate limit y guardar en Firestore
-    const rateLimitResult = await adminDb.runTransaction(async (transaction) => {
-      const result = await applyRateLimitInTransaction(transaction, { fpHash, ipHash });
-      if (!result.allowed) {
-        return result;
-      }
-
-      transaction.set(reportRef, newReport);
-      transaction.set(adminDb.collection('report_private_meta').doc(reportId), privateMeta);
-      return result;
+    const { data: rpcRows, error: rpcError } = await supabaseAdmin.rpc('create_report_with_rate_limit', {
+      p_city_id: DEFAULT_CITY_ID,
+      p_lat: lat,
+      p_lng: lng,
+      p_category: category,
+      p_title: title,
+      p_description: description || null,
+      p_images: images || [],
+      p_user_id: userId || null,
+      p_user_display_name: userDisplayName || null,
+      p_ip_hash: ipHash,
+      p_fingerprint_hash: fpHash,
+      p_user_agent: request.headers.get('user-agent') || 'unknown',
+      p_origin: origin || request.headers.get('referer') || null,
+      p_max_reports_fp: env.MAX_REPORTS_PER_DAY_FP,
+      p_max_reports_ip: env.MAX_REPORTS_PER_DAY_IP,
+      p_window_hours: env.RATE_LIMIT_WINDOW_HOURS,
     });
 
-    if (!rateLimitResult.allowed) {
-      const resetAt = rateLimitResult.resetAt || new Date(Date.now() + 24 * 60 * 60 * 1000);
+    if (rpcError) {
+      throw rpcError;
+    }
+
+    const rateLimitResult = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+    if (!rateLimitResult?.allowed) {
+      const resetAt = rateLimitResult?.reset_at
+        ? new Date(rateLimitResult.reset_at)
+        : new Date(Date.now() + 24 * 60 * 60 * 1000);
       return tooManyRequests(
         'Has alcanzado el limite de reportes diarios permitidos. Por favor, intenta de nuevo manana.',
         resetAt
       );
     }
 
-    await touchPublicReportsFeed({
-      cityId: newReport.cityId,
-      reportId,
-      createdAt: nowISO,
-    }).catch((err) => {
-      console.error('[POST /api/reports] No se pudo actualizar el feed publico:', err);
-    });
+    const reportId = rateLimitResult.report_id as string;
+    const newReport = await getReportById(reportId);
+    if (!newReport) {
+      throw new Error('REPORT_CREATED_BUT_NOT_FOUND');
+    }
 
     // Trigger push notifications asynchronously (non-blocking)
     triggerReportPushNotifications(newReport).catch((err) => {

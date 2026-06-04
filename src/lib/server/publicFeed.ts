@@ -1,11 +1,9 @@
-import * as admin from 'firebase-admin';
-import { adminDb } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 
 interface TouchPublicReportsFeedOptions {
   cityId?: string;
   reportId: string;
-  createdAt: string;
 }
 
 /**
@@ -15,17 +13,14 @@ interface TouchPublicReportsFeedOptions {
 export async function touchPublicReportsFeed({
   cityId = DEFAULT_CITY_ID,
   reportId,
-  createdAt,
 }: TouchPublicReportsFeedOptions) {
-  await adminDb.collection('public_feeds').doc(cityId).set(
-    {
-      cityId,
-      reportVersion: admin.firestore.FieldValue.increment(1),
-      lastReportId: reportId,
-      lastReportAt: createdAt,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const { error } = await supabaseAdmin.rpc('bump_public_feed', {
+    p_city_id: cityId,
+    p_report_id: reportId,
+  });
+
+  if (error) {
+    throw error;
+  }
 }
 

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^5.2.0",
+    "@supabase/supabase-js": "^2.107.0",
     "cloudinary": "^2.10.0",
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",

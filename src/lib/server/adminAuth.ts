@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export interface AdminRoleResult {
   uid: string;
@@ -32,9 +33,17 @@ export async function verifyAdminRole(request: NextRequest): Promise<AdminRoleRe
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
     const uid = decodedToken.uid;
-    const userDoc = await adminDb.collection('users').doc(uid).get();
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('uid', uid)
+      .maybeSingle();
 
-    if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+    if (error) {
+      throw error;
+    }
+
+    if (data?.role !== 'admin') {
       return {
         uid,
         errorResponse: Response.json(

@@ -39,7 +39,7 @@ export default function NotificationBell() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [toastMessage, setToastMessage] = useState<ToastData | null>(null);
 
-  // Registra el token FCM en Firestore de forma silenciosa (sin UI feedback).
+  // Registra el token FCM en el backend de forma silenciosa (sin UI feedback).
   // Seguro de llamar múltiples veces: getToken() es idempotente y el endpoint usa merge:true.
   const registerTokenSilently = useCallback(async () => {
     try {

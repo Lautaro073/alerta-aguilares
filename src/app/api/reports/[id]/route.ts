@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
 import { verifyAdminRole } from '@/lib/server/adminAuth';
 import { serverError } from '@/lib/server/response';
 import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
-import { DEFAULT_CITY_ID } from '@/lib/constants/city';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,10 +35,17 @@ export async function PATCH(
       );
     }
 
-    const reportRef = adminDb.collection('reports').doc(reportId);
-    const reportDoc = await reportRef.get();
+    const { data: reportRow, error: fetchError } = await supabaseAdmin
+      .from('reports')
+      .select('id, city_id')
+      .eq('id', reportId)
+      .maybeSingle();
 
-    if (!reportDoc.exists) {
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    if (!reportRow) {
       return Response.json(
         { success: false, error: 'El reporte no existe.' },
         { status: 404 }
@@ -47,16 +53,21 @@ export async function PATCH(
     }
 
     const nowISO = new Date().toISOString();
-    await reportRef.update({
-      status,
-      updatedAt: nowISO,
-      resolvedAt: status === 'RESOLVED' ? nowISO : null,
-    });
+    const { error: updateError } = await supabaseAdmin
+      .from('reports')
+      .update({
+        status,
+        resolved_at: status === 'RESOLVED' ? nowISO : null,
+      })
+      .eq('id', reportId);
+
+    if (updateError) {
+      throw updateError;
+    }
 
     await touchPublicReportsFeed({
-      cityId: reportDoc.data()?.cityId || DEFAULT_CITY_ID,
+      cityId: reportRow.city_id,
       reportId,
-      createdAt: nowISO,
     }).catch((err) => {
       console.error('[PATCH /api/reports/[id]] No se pudo actualizar el feed publico:', err);
     });
@@ -83,26 +94,35 @@ export async function DELETE(
     const { errorResponse } = await verifyAdminRole(request);
     if (errorResponse) return errorResponse;
 
-    const reportRef = adminDb.collection('reports').doc(reportId);
-    const metaRef = adminDb.collection('report_private_meta').doc(reportId);
-    const reportDoc = await reportRef.get();
+    const { data: reportRow, error: fetchError } = await supabaseAdmin
+      .from('reports')
+      .select('id, city_id')
+      .eq('id', reportId)
+      .maybeSingle();
 
-    if (!reportDoc.exists) {
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    if (!reportRow) {
       return Response.json(
         { success: false, error: 'El reporte no existe.' },
         { status: 404 }
       );
     }
 
-    const batch = adminDb.batch();
-    batch.delete(reportRef);
-    batch.delete(metaRef);
-    await batch.commit();
+    const { error: deleteError } = await supabaseAdmin
+      .from('reports')
+      .delete()
+      .eq('id', reportId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
 
     await touchPublicReportsFeed({
-      cityId: reportDoc.data()?.cityId || DEFAULT_CITY_ID,
+      cityId: reportRow.city_id,
       reportId,
-      createdAt: new Date().toISOString(),
     }).catch((err) => {
       console.error('[DELETE /api/reports/[id]] No se pudo actualizar el feed publico:', err);
     });

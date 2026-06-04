@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { CATEGORIES, CategoryId } from '@/lib/constants/categories';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,8 +34,6 @@ export default function MapControls({
   clearCategories,
   setView,
   isCategorySelected,
-  selectedTimeframe,
-  setTimeframe,
 }: MapControlsProps) {
   const categoriesList = Object.values(CATEGORIES);
   const totalSelected = selectedCategories.length;
@@ -200,9 +199,12 @@ export default function MapControls({
                   title={profile?.displayName || user.displayName || 'Vecino'}
                 >
                   {profile?.photoURL || user.photoURL ? (
-                    <img
+                    <Image
                       src={profile?.photoURL || user.photoURL || ''}
                       alt="Avatar"
+                      fill
+                      sizes="40px"
+                      unoptimized
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />

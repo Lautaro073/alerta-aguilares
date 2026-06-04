@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import NextImage from 'next/image';
 import { RotateCcw, RotateCw, Compass, Loader2 } from 'lucide-react';
 
 interface StreetViewImageProps {
@@ -94,10 +95,13 @@ export default function StreetViewImage({ lat, lng }: StreetViewImageProps) {
 
       {/* Imagen activa — usa la URL cacheada por el browser, cambio instantáneo */}
       {!hasError && (
-        <img
+        <NextImage
           key={`${lat}-${lng}-${heading}`}
           src={`/api/streetview?lat=${lat}&lng=${lng}&heading=${heading}`}
           alt={`Street View ${heading}° — ${lat.toFixed(5)}, ${lng.toFixed(5)}`}
+          fill
+          sizes="(max-width: 640px) 100vw, 384px"
+          unoptimized
           className={`w-full h-full object-cover transition-opacity duration-200 ${
             isCurrentLoaded ? 'opacity-100' : 'opacity-0'
           }`}

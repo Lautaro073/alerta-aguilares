@@ -98,7 +98,7 @@ self.addEventListener('push', (event) => {
       event.waitUntil(
         self.registration.showNotification(payload.title || 'CiudadAlerta', options)
       );
-    } catch (err) {
+    } catch {
       // Fallback in case the notification payload is plain text instead of JSON
       const text = event.data.text();
       event.waitUntil(

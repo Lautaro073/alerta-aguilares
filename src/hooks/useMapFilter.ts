@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CategoryId } from '@/lib/constants/categories';
 
 const CATEGORIES_KEY = 'ciudadalerta_filter_categories';
@@ -7,6 +7,47 @@ const TIMEFRAME_KEY = 'ciudadalerta_filter_timeframe';
 
 export type TimeframeId = '24h' | '7d' | '30d' | 'all';
 
+function getStoredCategories(): CategoryId[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const cachedCategories = sessionStorage.getItem(CATEGORIES_KEY);
+    return cachedCategories ? JSON.parse(cachedCategories) as CategoryId[] : [];
+  } catch (error) {
+    console.error('⚠️ [MAP_FILTER] Error al recuperar categorías guardadas:', error);
+    return [];
+  }
+}
+
+function getStoredView(): 'markers' | 'heatmap' {
+  if (typeof window === 'undefined') return 'markers';
+
+  try {
+    const cachedView = sessionStorage.getItem(VIEW_KEY);
+    return cachedView === 'markers' || cachedView === 'heatmap' ? cachedView : 'markers';
+  } catch (error) {
+    console.error('⚠️ [MAP_FILTER] Error al recuperar vista guardada:', error);
+    return 'markers';
+  }
+}
+
+function getStoredTimeframe(): TimeframeId {
+  if (typeof window === 'undefined') return 'all';
+
+  try {
+    const cachedTimeframe = sessionStorage.getItem(TIMEFRAME_KEY);
+    return cachedTimeframe === '24h' ||
+      cachedTimeframe === '7d' ||
+      cachedTimeframe === '30d' ||
+      cachedTimeframe === 'all'
+      ? cachedTimeframe
+      : 'all';
+  } catch (error) {
+    console.error('⚠️ [MAP_FILTER] Error al recuperar timeframe guardado:', error);
+    return 'all';
+  }
+}
+
 /**
  * Hook personalizado para orquestar y persistir el estado de los filtros del mapa.
  * 
@@ -14,35 +55,9 @@ export type TimeframeId = '24h' | '7d' | '30d' | 'all';
  * pero se limpien automáticamente al cerrar la pestaña o terminar la sesión del usuario.
  */
 export function useMapFilter() {
-  const [selectedCategories, setSelectedCategories] = useState<CategoryId[]>([]);
-  const [selectedView, setSelectedView] = useState<'markers' | 'heatmap'>('markers');
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeId>('all');
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Inicializar estado desde sessionStorage del lado del cliente
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cachedCategories = sessionStorage.getItem(CATEGORIES_KEY);
-        const cachedView = sessionStorage.getItem(VIEW_KEY);
-        const cachedTimeframe = sessionStorage.getItem(TIMEFRAME_KEY);
-
-        if (cachedCategories) {
-          setSelectedCategories(JSON.parse(cachedCategories) as CategoryId[]);
-        }
-        if (cachedView === 'markers' || cachedView === 'heatmap') {
-          setSelectedView(cachedView);
-        }
-        if (cachedTimeframe === '24h' || cachedTimeframe === '7d' || cachedTimeframe === '30d' || cachedTimeframe === 'all') {
-          setSelectedTimeframe(cachedTimeframe);
-        }
-      } catch (error) {
-        console.error('⚠️ [MAP_FILTER] Error al recuperar filtros guardados:', error);
-      } finally {
-        setIsInitialized(true);
-      }
-    }
-  }, []);
+  const [selectedCategories, setSelectedCategories] = useState<CategoryId[]>(getStoredCategories);
+  const [selectedView, setSelectedView] = useState<'markers' | 'heatmap'>(getStoredView);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeId>(getStoredTimeframe);
 
   // Actualizar categorías y persistir
   const updateCategories = (categories: CategoryId[]) => {
@@ -109,7 +124,7 @@ export function useMapFilter() {
     selectedCategories,
     selectedView,
     selectedTimeframe,
-    isInitialized,
+    isInitialized: true,
     toggleCategory,
     clearCategories,
     isCategorySelected,

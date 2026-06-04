@@ -4,8 +4,42 @@ import { GetReportsQuerySchema } from '@/lib/validators/report.schema';
 import { Report } from '@/types/report';
 import { encodeGeohash, getGeohashRangesForBounds } from '@/lib/utils/geoUtils';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
+import { CategoryId } from '@/lib/constants/categories';
 
 export const dynamic = 'force-dynamic';
+
+interface HeatmapPoint {
+  lat: number;
+  lng: number;
+}
+
+type StreamReport = Report | HeatmapPoint;
+
+function mapDocToStreamReport(id: string, data: FirebaseFirestore.DocumentData, view: 'markers' | 'heatmap'): StreamReport {
+  const lat = data.lat as number;
+  const lng = data.lng as number;
+
+  if (view === 'heatmap') {
+    return { lat, lng };
+  }
+
+  return {
+    id,
+    cityId: data.cityId || DEFAULT_CITY_ID,
+    lat,
+    lng,
+    geohash: data.geohash || encodeGeohash(lat, lng),
+    category: data.category as CategoryId,
+    title: data.title as string,
+    description: data.description || null,
+    images: Array.isArray(data.images) ? data.images as string[] : [],
+    status: data.status || 'ACTIVE',
+    createdAt: data.createdAt as string,
+    updatedAt: data.updatedAt as string,
+    resolvedAt: data.resolvedAt || null,
+    verifiedCount: data.verifiedCount || 0,
+  } as Report;
+}
 
 /**
  * GET /api/reports/stream
@@ -58,11 +92,11 @@ export async function GET(request: NextRequest) {
       const hasBounds = south !== undefined && north !== undefined && west !== undefined && east !== undefined;
 
       // Agrupador de documentos para streams de rango múltiple
-      const activeRangeDocs = new Map<number, Map<string, any>>();
+      const activeRangeDocs = new Map<number, Map<string, FirebaseFirestore.DocumentData>>();
       const unsubscribers: Array<() => void> = [];
 
       const emitAggregatedResults = () => {
-        const docMap = new Map<string, any>();
+        const docMap = new Map<string, FirebaseFirestore.DocumentData>();
         activeRangeDocs.forEach((rangeMap) => {
           rangeMap.forEach((data, id) => {
             docMap.set(id, data);
@@ -70,7 +104,7 @@ export async function GET(request: NextRequest) {
         });
 
         // Filtrar y mapear por Bounding Box exacto si existen límites
-        let filteredList: Array<{ id: string; data: any }> = [];
+        const filteredList: Array<{ id: string; data: FirebaseFirestore.DocumentData }> = [];
         docMap.forEach((data, id) => {
           const latVal = data.lat as number;
           const lngVal = data.lng as number;
@@ -90,27 +124,7 @@ export async function GET(request: NextRequest) {
         const limitedList = filteredList.slice(0, maxLimit);
 
         // Mapear según la vista (heatmap vs markers)
-        const mappedData = limitedList.map((item) => {
-          if (view === 'heatmap') {
-            return { lat: item.data.lat as number, lng: item.data.lng as number };
-          }
-          return {
-            id: item.id,
-            cityId: item.data.cityId || DEFAULT_CITY_ID,
-            lat: item.data.lat,
-            lng: item.data.lng,
-            geohash: item.data.geohash || encodeGeohash(item.data.lat, item.data.lng),
-            category: item.data.category,
-            title: item.data.title,
-            description: item.data.description || null,
-            images: item.data.images || [],
-            status: item.data.status || 'ACTIVE',
-            createdAt: item.data.createdAt,
-            updatedAt: item.data.updatedAt,
-            resolvedAt: item.data.resolvedAt || null,
-            verifiedCount: item.data.verifiedCount || 0,
-          } as Report;
-        });
+        const mappedData = limitedList.map((item) => mapDocToStreamReport(item.id, item.data, view));
 
         send('reports', { count: mappedData.length, data: mappedData });
       };
@@ -120,7 +134,7 @@ export async function GET(request: NextRequest) {
         const resolvedRanges = new Set<number>();
 
         ranges.forEach(([startRange, endRange], index) => {
-          activeRangeDocs.set(index, new Map<string, any>());
+          activeRangeDocs.set(index, new Map<string, FirebaseFirestore.DocumentData>());
 
           let q: FirebaseFirestore.Query = adminDb.collection('reports');
           if (categories && categories.length > 0) {
@@ -137,7 +151,7 @@ export async function GET(request: NextRequest) {
 
           const unsubscribe = q.onSnapshot(
             (snapshot) => {
-              const rangeMap = activeRangeDocs.get(index) || new Map<string, any>();
+              const rangeMap = activeRangeDocs.get(index) || new Map<string, FirebaseFirestore.DocumentData>();
               rangeMap.clear();
               snapshot.docs.forEach((doc) => {
                 rangeMap.set(doc.id, doc.data());
@@ -179,28 +193,7 @@ export async function GET(request: NextRequest) {
 
         const unsubscribe = query.onSnapshot(
           (snapshot) => {
-            const reports = snapshot.docs.map((doc) => {
-              const data = doc.data();
-              if (view === 'heatmap') {
-                return { lat: data.lat as number, lng: data.lng as number };
-              }
-              return {
-                id: doc.id,
-                cityId: data.cityId || DEFAULT_CITY_ID,
-                lat: data.lat,
-                lng: data.lng,
-                geohash: data.geohash || encodeGeohash(data.lat, data.lng),
-                category: data.category,
-                title: data.title,
-                description: data.description || null,
-                images: data.images || [],
-                status: data.status || 'ACTIVE',
-                createdAt: data.createdAt,
-                updatedAt: data.updatedAt,
-                resolvedAt: data.resolvedAt || null,
-                verifiedCount: data.verifiedCount || 0,
-              } as Report;
-            });
+            const reports = snapshot.docs.map((doc) => mapDocToStreamReport(doc.id, doc.data(), view));
 
             send('reports', { count: reports.length, data: reports });
           },

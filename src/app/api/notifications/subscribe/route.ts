@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       message: 'Suscripción a notificaciones registrada con éxito.' 
     }, { status: 201 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     return serverError('POST_SUBSCRIBE_NOTIFICATION', error);
   }
 }

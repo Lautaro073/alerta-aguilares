@@ -95,14 +95,14 @@ export async function POST(
       { status: 200 }
     );
 
-  } catch (error: any) {
-    if (error.message === 'NOT_FOUND') {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
       return Response.json(
         { success: false, error: 'El reporte especificado no existe.' },
         { status: 404 }
       );
     }
-    if (error.message === 'REPORT_NOT_ACTIVE') {
+    if (error instanceof Error && error.message === 'REPORT_NOT_ACTIVE') {
       return Response.json(
         { success: false, error: 'Solo se pueden confirmar reportes en estado activo.' },
         { status: 400 }

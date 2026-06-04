@@ -10,7 +10,7 @@ import { AGUILARES_BOUNDS } from '@/lib/constants/map';
 import { getVisitorId } from '@/lib/utils/fingerprint';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
-import { X, Check, AlertOctagon, MapPin, Bell, ChevronLeft, ChevronRight, Lock, BadgeCheck } from 'lucide-react';
+import { X, Check, AlertOctagon, Bell, ChevronLeft, ChevronRight, Lock, BadgeCheck } from 'lucide-react';
 import { getAppCheckToken } from '@/lib/firebase/appCheckClient';
 
 // Importación dinámica de ReportMiniMap para prevenir fallos en SSR de Leaflet

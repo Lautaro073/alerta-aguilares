@@ -7,7 +7,7 @@ import { adminApp } from '@/lib/firebase/admin';
  * - En desarrollo (NODE_ENV !== 'production'): siempre retorna true (no bloquea).
  * - En producción: verifica el token con el SDK de Firebase Admin.
  * 
- * Si la RECAPTCHA_SITE_KEY no está configurada, se omite la verificación.
+ * Si la site key de reCAPTCHA no está configurada en producción, la verificación falla cerrada.
  */
 export async function verifyAppCheckToken(request: NextRequest): Promise<boolean> {
   // Saltar verificación en desarrollo local
@@ -15,10 +15,10 @@ export async function verifyAppCheckToken(request: NextRequest): Promise<boolean
     return true;
   }
 
-  // Si no hay site key configurada, no forzar App Check
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
   if (!siteKey) {
-    return true;
+    console.error('[App Check] NEXT_PUBLIC_RECAPTCHA_SITE_KEY no esta configurada en produccion.');
+    return false;
   }
 
   const appCheckToken = request.headers.get('X-Firebase-AppCheck');

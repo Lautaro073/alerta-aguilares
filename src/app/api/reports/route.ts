@@ -3,7 +3,7 @@ import { adminDb, adminMessaging, adminAuth } from '@/lib/firebase/admin';
 import { GetReportsQuerySchema, CreateReportSchema } from '@/lib/validators/report.schema';
 import { badRequest, tooManyRequests, serverError, forbidden } from '@/lib/server/response';
 import { Report, ReportPrivateMeta } from '@/types/report';
-import { checkRateLimit } from '@/lib/utils/rateLimit';
+import { applyRateLimitInTransaction } from '@/lib/utils/rateLimit';
 import { hashValue } from '@/lib/server/hash';
 import { env } from '@/lib/server/env';
 import { CATEGORIES } from '@/lib/constants/categories';
@@ -322,16 +322,6 @@ export async function POST(request: NextRequest) {
     const ipHash = hashValue(ip);
     const fpHash = hashValue(fingerprintVisitorId);
 
-    const rateLimitResult = await checkRateLimit({ fpHash, ipHash });
-
-    if (!rateLimitResult.allowed) {
-      const resetAt = rateLimitResult.resetAt || new Date(Date.now() + 24 * 60 * 60 * 1000);
-      return tooManyRequests(
-        'Has alcanzado el límite de reportes diarios permitidos. Por favor, intenta de nuevo mañana.',
-        resetAt
-      );
-    }
-
     // 5. Preparar la creación de documentos
     const reportRef = adminDb.collection('reports').doc();
     const reportId = reportRef.id;
@@ -372,12 +362,25 @@ export async function POST(request: NextRequest) {
       createdAt: nowISO,
     };
 
-    // 6. Transacción atómica batch para guardar en Firestore
-    const batch = adminDb.batch();
-    batch.set(reportRef, newReport);
-    batch.set(adminDb.collection('report_private_meta').doc(reportId), privateMeta);
-    
-    await batch.commit();
+    // 6. Transacción atómica para aplicar rate limit y guardar en Firestore
+    const rateLimitResult = await adminDb.runTransaction(async (transaction) => {
+      const result = await applyRateLimitInTransaction(transaction, { fpHash, ipHash });
+      if (!result.allowed) {
+        return result;
+      }
+
+      transaction.set(reportRef, newReport);
+      transaction.set(adminDb.collection('report_private_meta').doc(reportId), privateMeta);
+      return result;
+    });
+
+    if (!rateLimitResult.allowed) {
+      const resetAt = rateLimitResult.resetAt || new Date(Date.now() + 24 * 60 * 60 * 1000);
+      return tooManyRequests(
+        'Has alcanzado el limite de reportes diarios permitidos. Por favor, intenta de nuevo manana.',
+        resetAt
+      );
+    }
 
     await touchPublicReportsFeed({
       cityId: newReport.cityId,

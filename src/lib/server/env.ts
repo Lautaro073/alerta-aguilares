@@ -62,6 +62,13 @@ const extendedEnvSchema = EnvSchema.superRefine((data, ctx) => {
         message: 'Se debe proporcionar una firma aleatoria segura (HASH_SALT) de al menos 32 caracteres en producción.',
       });
     }
+    if (!data.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['NEXT_PUBLIC_RECAPTCHA_SITE_KEY'],
+        message: 'NEXT_PUBLIC_RECAPTCHA_SITE_KEY es obligatoria en produccion para Firebase App Check.',
+      });
+    }
   }
 });
 

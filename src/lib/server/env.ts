@@ -20,6 +20,11 @@ const EnvSchema = z.object({
   // Firebase App Check — reCAPTCHA v3 Site Key
   NEXT_PUBLIC_RECAPTCHA_SITE_KEY: z.string().optional().or(z.literal('')),
 
+  // Supabase
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional().or(z.literal('')),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional().or(z.literal('')),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional().or(z.literal('')),
+
   // Cloudinary (almacenamiento de fotos de reportes)
   CLOUDINARY_CLOUD_NAME: z.string().min(1),
   CLOUDINARY_API_KEY: z.string().min(1),
@@ -67,6 +72,27 @@ const extendedEnvSchema = EnvSchema.superRefine((data, ctx) => {
         code: z.ZodIssueCode.custom,
         path: ['NEXT_PUBLIC_RECAPTCHA_SITE_KEY'],
         message: 'NEXT_PUBLIC_RECAPTCHA_SITE_KEY es obligatoria en produccion para Firebase App Check.',
+      });
+    }
+    if (!data.NEXT_PUBLIC_SUPABASE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['NEXT_PUBLIC_SUPABASE_URL'],
+        message: 'NEXT_PUBLIC_SUPABASE_URL es obligatoria en produccion.',
+      });
+    }
+    if (!data.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['NEXT_PUBLIC_SUPABASE_ANON_KEY'],
+        message: 'NEXT_PUBLIC_SUPABASE_ANON_KEY es obligatoria en produccion para Realtime.',
+      });
+    }
+    if (!data.SUPABASE_SERVICE_ROLE_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SUPABASE_SERVICE_ROLE_KEY'],
+        message: 'SUPABASE_SERVICE_ROLE_KEY es obligatoria en produccion para API routes.',
       });
     }
   }

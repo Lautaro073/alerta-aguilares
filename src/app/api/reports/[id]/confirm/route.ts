@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
-import { adminDb, adminAuth } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
 import { serverError } from '@/lib/server/response';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,49 +49,22 @@ export async function POST(
       );
     }
 
-    // 3. Realizar la transacción de toggle en Firestore
-    const reportRef = adminDb.collection('reports').doc(reportId);
-    let confirmedCount = 0;
-    let userHasConfirmed = false;
-
-    await adminDb.runTransaction(async (transaction) => {
-      const doc = await transaction.get(reportRef);
-      if (!doc.exists) {
-        throw new Error('NOT_FOUND');
-      }
-
-      const data = doc.data()!;
-      if (data.status !== 'ACTIVE') {
-        throw new Error('REPORT_NOT_ACTIVE');
-      }
-
-      const confirmedBy: string[] = data.confirmedBy || [];
-      const userIndex = confirmedBy.indexOf(uid);
-
-      if (userIndex > -1) {
-        // Toggle OFF: El usuario ya lo había confirmado, se remueve el apoyo
-        confirmedBy.splice(userIndex, 1);
-        userHasConfirmed = false;
-      } else {
-        // Toggle ON: El usuario no lo había confirmado, se agrega el apoyo
-        confirmedBy.push(uid);
-        userHasConfirmed = true;
-      }
-
-      confirmedCount = confirmedBy.length;
-
-      transaction.update(reportRef, {
-        confirmedBy,
-        verifiedCount: confirmedCount,
-        updatedAt: new Date().toISOString(),
-      });
+    const { data, error } = await supabaseAdmin.rpc('toggle_report_confirmation', {
+      p_report_id: reportId,
+      p_uid: uid,
     });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
 
     return Response.json(
       {
         success: true,
-        verifiedCount: confirmedCount,
-        confirmed: userHasConfirmed,
+        verifiedCount: result?.verified_count || 0,
+        confirmed: Boolean(result?.confirmed),
       },
       { status: 200 }
     );

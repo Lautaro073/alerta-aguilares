@@ -1,6 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from 'firebase/app-check';
 
 const firebaseConfig = {
@@ -15,7 +14,6 @@ const firebaseConfig = {
 // Inicializar Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-const db = getFirestore(app);
 
 // Inicializar Firebase App Check (solo en el cliente)
 let appCheckInstance: AppCheck | null = null;
@@ -52,14 +50,6 @@ if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_FIREBA
     }
   }
 
-  if (!(db as unknown as Record<string, boolean>)._emulatorActivated) {
-    (db as unknown as Record<string, boolean>)._emulatorActivated = true;
-    try {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-    } catch (e) {
-      console.warn('⚠️ Error al conectar al emulador de Firestore:', e);
-    }
-  }
 }
 
-export { app, auth, db, appCheckInstance };
+export { app, auth, appCheckInstance };

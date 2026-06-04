@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
 import { serverError } from '@/lib/server/response';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,15 +49,25 @@ async function verifyUser(request: NextRequest) {
   }
 }
 
-function serializeProfile(uid: string, data: FirebaseFirestore.DocumentData): UserProfileResponse {
+interface UserRow {
+  uid: string;
+  display_name: string | null;
+  email: string | null;
+  photo_url: string | null;
+  role: 'user' | 'admin';
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+function serializeProfile(data: UserRow): UserProfileResponse {
   return {
-    uid,
-    displayName: data.displayName || null,
+    uid: data.uid,
+    displayName: data.display_name || null,
     email: data.email || null,
-    photoURL: data.photoURL || null,
+    photoURL: data.photo_url || null,
     role: data.role === 'admin' ? 'admin' : 'user',
-    createdAt: data.createdAt || null,
-    updatedAt: data.updatedAt || null,
+    createdAt: data.created_at || null,
+    updatedAt: data.updated_at || null,
   };
 }
 
@@ -73,32 +84,43 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const uid = decodedToken.uid;
-    const userRef = adminDb.collection('users').doc(uid);
-    const userSnap = await userRef.get();
-    const existing = userSnap.data();
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('uid', uid)
+      .maybeSingle();
+
+    if (fetchError) {
+      throw fetchError;
+    }
 
     const displayName =
       typeof body.displayName === 'string' && body.displayName.trim().length > 0
         ? body.displayName.trim().slice(0, 80)
-        : existing?.displayName || decodedToken.name || 'Vecino Anonimo';
+        : existing?.display_name || decodedToken.name || 'Vecino Anonimo';
 
-    const nowISO = new Date().toISOString();
     const nextProfile = {
       uid,
-      displayName,
+      display_name: displayName,
       email: existing?.email || decodedToken.email || null,
-      photoURL: existing?.photoURL || decodedToken.picture || null,
+      photo_url: existing?.photo_url || decodedToken.picture || null,
       role: existing?.role === 'admin' ? 'admin' : 'user',
-      createdAt: existing?.createdAt || nowISO,
-      updatedAt: nowISO,
     };
 
-    await userRef.set(nextProfile, { merge: true });
+    const { data: savedProfile, error: upsertError } = await supabaseAdmin
+      .from('users')
+      .upsert(nextProfile, { onConflict: 'uid' })
+      .select('*')
+      .single();
+
+    if (upsertError) {
+      throw upsertError;
+    }
 
     return Response.json(
       {
         success: true,
-        data: serializeProfile(uid, nextProfile),
+        data: serializeProfile(savedProfile as UserRow),
       },
       {
         status: 200,

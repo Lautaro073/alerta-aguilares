@@ -1,4 +1,5 @@
-import { adminDb, adminMessaging } from '@/lib/firebase/admin';
+import { adminMessaging } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { Report } from '@/types/report';
 
@@ -8,13 +9,16 @@ import { Report } from '@/types/report';
  */
 export async function triggerReportPushNotifications(report: Report) {
   try {
-    const tokensSnapshot = await adminDb.collection('fcm_tokens').get();
-    if (tokensSnapshot.empty) {
-      return;
+    const { data, error } = await supabaseAdmin
+      .from('fcm_tokens')
+      .select('token');
+
+    if (error) {
+      throw error;
     }
 
-    const tokens = tokensSnapshot.docs
-      .map((doc) => doc.data().token)
+    const tokens = (data || [])
+      .map((row) => row.token)
       .filter((token): token is string => typeof token === 'string' && token.length > 0);
 
     if (tokens.length === 0) {
@@ -66,11 +70,15 @@ export async function triggerReportPushNotifications(report: Report) {
     });
 
     if (tokensToDelete.length > 0) {
-      const cleanupBatch = adminDb.batch();
-      tokensToDelete.forEach((token) => {
-        cleanupBatch.delete(adminDb.collection('fcm_tokens').doc(token));
-      });
-      await cleanupBatch.commit();
+      const { error: deleteError } = await supabaseAdmin
+        .from('fcm_tokens')
+        .delete()
+        .in('token', tokensToDelete);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
       console.log(`[FCM] Se eliminaron ${tokensToDelete.length} tokens invalidos.`);
     }
 

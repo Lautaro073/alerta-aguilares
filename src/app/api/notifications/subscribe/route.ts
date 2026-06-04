@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
 import { badRequest, serverError } from '@/lib/server/response';
 import { z } from 'zod';
+import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ const SubscribeSchema = z.object({
  * POST /api/notifications/subscribe
  * 
  * Registra o actualiza un token de Firebase Cloud Messaging (FCM) para recibir alertas push.
- * Al usar el propio token como Document ID de Firestore, evitamos duplicar suscripciones de un mismo cliente.
+ * Al usar el propio token como primary key, evitamos duplicar suscripciones de un mismo cliente.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,15 +27,14 @@ export async function POST(request: NextRequest) {
 
     const { token, uid } = parsed.data;
 
-    // Registrar o actualizar el token en Firestore
-    const tokenRef = adminDb.collection('fcm_tokens').doc(token);
-
-    await tokenRef.set({
+    const { error } = await supabaseAdmin.from('fcm_tokens').upsert({
       token,
       uid: uid || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }, { merge: true });
+    }, { onConflict: 'token' });
+
+    if (error) {
+      throw error;
+    }
 
     return Response.json({ 
       success: true, 

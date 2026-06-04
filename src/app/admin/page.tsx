@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { db } from '@/lib/firebase/client';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { Report } from '@/types/report';
 import { CATEGORIES } from '@/lib/constants/categories';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -20,7 +18,6 @@ import {
   MapPin,
   Activity,
   CheckCircle,
-  ExternalLink,
   Search,
   Filter,
   Loader2,
@@ -30,7 +27,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { user, profile, isAdmin, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,34 +38,38 @@ export default function AdminDashboard() {
   // Estados de carga para las acciones individuales de moderación
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-  // Cargar reportes en tiempo real desde Firestore (solo si es Admin)
-  useEffect(() => {
-    if (!isAdmin) return;
+  const fetchAdminReports = async () => {
+    if (!user || !isAdmin) return;
 
     setLoadingReports(true);
-    const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'));
-    
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const reportsList = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-          } as Report;
-        });
-        setReports(reportsList);
-        setLoadingReports(false);
-      },
-      (err) => {
-        console.error('Error al escuchar cambios en reportes:', err);
-        setLoadingReports(false);
-      }
-    );
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/reports', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: 'no-store',
+      });
 
-    return () => unsubscribe();
-  }, [isAdmin]);
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'No se pudieron cargar los reportes.');
+      }
+
+      const result = await response.json();
+      setReports(result.data || []);
+    } catch (err) {
+      console.error('Error al cargar reportes de administracion:', err);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  // Cargar reportes via API admin para mantener Firestore cerrado al cliente.
+  useEffect(() => {
+    void fetchAdminReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isAdmin]);
 
   // Manejar el cambio de estado del reporte
   const handleUpdateStatus = async (reportId: string, newStatus: 'RESOLVED' | 'DUPLICATE' | 'ACTIVE') => {
@@ -91,6 +92,7 @@ export default function AdminDashboard() {
         const result = await response.json();
         throw new Error(result.error || 'Error al actualizar el estado del reporte.');
       }
+      await fetchAdminReports();
     } catch (error) {
       console.error('Error al actualizar estado:', error);
       alert('Ocurrió un error al moderar el reporte.');
@@ -123,6 +125,7 @@ export default function AdminDashboard() {
         const result = await response.json();
         throw new Error(result.error || 'Error al eliminar el reporte.');
       }
+      await fetchAdminReports();
     } catch (error) {
       console.error('Error al eliminar reporte:', error);
       alert('Ocurrió un error al eliminar el reporte.');

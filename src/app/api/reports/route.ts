@@ -8,6 +8,7 @@ import { verifyAppCheckToken } from '@/lib/server/appCheck';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 import { getPublicReportCacheHeaders, getReportById, listPublicReports } from '@/features/reports/server/reportQueries';
 import { triggerReportPushNotifications } from '@/features/reports/server/reportNotifications';
+import { resolveLocationLabel } from '@/features/reports/server/locationLabel';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { lat, lng, category, title, description, images, fingerprintVisitorId } = parsedBody.success ? parsedBody.data : body;
+    const locationLabel = await resolveLocationLabel(lat, lng);
 
     // 3b. Verificar si el usuario está autenticado y resolver su autoría de forma segura en el servidor
     let userId: string | undefined = undefined;
@@ -173,6 +175,7 @@ export async function POST(request: NextRequest) {
       p_title: title,
       p_description: description || null,
       p_images: images || [],
+      p_location_label: locationLabel,
       p_user_id: userId || null,
       p_user_display_name: userDisplayName || null,
       p_ip_hash: ipHash,

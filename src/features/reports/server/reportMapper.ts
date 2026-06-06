@@ -15,6 +15,7 @@ export interface SupabaseReportRow {
   city_id: 'aguilares-tucuman' | string | null;
   lat: number;
   lng: number;
+  location_label: string | null;
   category: CategoryId;
   title: string;
   description: string | null;
@@ -36,6 +37,7 @@ export function mapSupabaseReportToReport(row: SupabaseReportRow): Report {
     cityId: row.city_id === 'aguilares-tucuman' ? row.city_id : DEFAULT_CITY_ID,
     lat: row.lat,
     lng: row.lng,
+    locationLabel: row.location_label,
     category: row.category,
     title: row.title,
     description: row.description,

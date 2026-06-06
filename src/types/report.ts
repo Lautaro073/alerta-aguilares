@@ -9,6 +9,7 @@ export interface Report {
 
   lat: number;
   lng: number;
+  locationLabel?: string | null;
   category: CategoryId;
   title: string;
   description: string | null;

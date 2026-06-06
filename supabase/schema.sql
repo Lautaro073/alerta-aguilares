@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS reports (
   city_id TEXT NOT NULL DEFAULT 'aguilares-tucuman',
   lat DOUBLE PRECISION NOT NULL,
   lng DOUBLE PRECISION NOT NULL,
+  location_label TEXT,
   location GEOGRAPHY(Point, 4326) GENERATED ALWAYS AS (
     ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography
   ) STORED,
@@ -71,6 +72,8 @@ CREATE TABLE IF NOT EXISTS reports (
   user_id TEXT REFERENCES users(uid) ON DELETE SET NULL,
   user_display_name TEXT
 );
+
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS location_label TEXT;
 
 CREATE TABLE IF NOT EXISTS report_private_meta (
   report_id UUID PRIMARY KEY REFERENCES reports(id) ON DELETE CASCADE,
@@ -142,7 +145,8 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DROP TRIGGER IF EXISTS users_set_updated_at ON users;
 CREATE TRIGGER users_set_updated_at
@@ -187,7 +191,8 @@ BEGIN
     last_report_at = EXCLUDED.last_report_at,
     updated_at = NOW();
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION create_report_with_rate_limit(
   p_city_id TEXT,
@@ -197,6 +202,7 @@ CREATE OR REPLACE FUNCTION create_report_with_rate_limit(
   p_title TEXT,
   p_description TEXT,
   p_images TEXT[],
+  p_location_label TEXT,
   p_user_id TEXT,
   p_user_display_name TEXT,
   p_ip_hash TEXT,
@@ -286,6 +292,7 @@ BEGIN
     title,
     description,
     images,
+    location_label,
     user_id,
     user_display_name
   )
@@ -297,6 +304,7 @@ BEGIN
     p_title,
     p_description,
     COALESCE(p_images, '{}'),
+    NULLIF(TRIM(p_location_label), ''),
     p_user_id,
     p_user_display_name
   )
@@ -327,7 +335,8 @@ BEGIN
 
   RETURN QUERY SELECT TRUE, v_remaining, v_reset_at, v_report_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION toggle_report_confirmation(
   p_report_id TEXT,
@@ -377,7 +386,8 @@ BEGIN
 
   RETURN QUERY SELECT v_count, v_confirmed;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public, pg_temp;
 
 DO $$
 BEGIN

@@ -34,6 +34,7 @@ export function AdminReportRow({
   const catColor = catConfig?.color || '#9CA3AF';
   const hasPhotos = report.images && report.images.length > 0;
   const isOpLoading = actionLoading[report.id];
+  const locationText = report.locationLabel || 'Dirección no disponible';
 
   return (
     <div
@@ -99,8 +100,8 @@ export function AdminReportRow({
             </span>
             <span className="flex items-center gap-1 font-mono text-[9.5px]">
               <MapPin size={11} className="shrink-0" />
-              <span>
-                {report.lat.toFixed(5)}, {report.lng.toFixed(5)}
+              <span className="font-sans text-[10.5px]">
+                {locationText}
               </span>
             </span>
             <span className="flex items-center gap-1">

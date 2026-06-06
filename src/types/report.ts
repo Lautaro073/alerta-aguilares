@@ -15,6 +15,7 @@ export interface Report {
   images?: string[];
 
   status: 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
+  deletedAt?: string | null;
 
   createdAt: string;
   updatedAt: string;

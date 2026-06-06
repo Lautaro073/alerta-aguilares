@@ -55,6 +55,8 @@ export const viewport: Viewport = {
 
 import { AuthProvider } from "@/hooks/useAuth";
 import PwaRegister from "@/components/layout/PwaRegister";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 
 export default function RootLayout({
   children,
@@ -67,9 +69,11 @@ export default function RootLayout({
       className={`${outfit.variable} ${plusJakartaSans.variable} h-full antialiased`}
     >
       <body className="font-jakarta min-h-dvh bg-background text-foreground flex flex-col">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <TooltipProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </TooltipProvider>
         <PwaRegister />
       </body>
     </html>

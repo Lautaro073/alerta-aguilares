@@ -19,6 +19,7 @@
 /out/
 /.codegraph
 /audit
+skills-lock.json
 
 # production
 /build

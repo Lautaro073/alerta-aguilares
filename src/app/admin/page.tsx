@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { CATEGORIES } from '@/lib/constants/categories';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import Link from 'next/link';
 import { useAdminReports } from '@/features/admin/client/useAdminReports';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Shield,
   ShieldAlert,
@@ -13,7 +18,12 @@ import {
   Users,
   Check,
   Copy,
-  Trash2,
+  Archive,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Calendar,
   MapPin,
   Activity,
@@ -26,8 +36,68 @@ import {
   UserCircle,
 } from 'lucide-react';
 
-type AdminStatusFilter = 'ALL' | 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
+type AdminStatusFilter = 'ALL' | 'ACTIVE' | 'RESOLVED' | 'DUPLICATE' | 'DELETED';
 type AdminTimeframeFilter = 'all' | '7d' | '30d';
+type AdminPageSize = 10 | 25 | 50 | 100;
+
+const PAGE_SIZE_OPTIONS: AdminPageSize[] = [10, 25, 50, 100];
+const ADMIN_LIST_HEIGHT_CLASS = 'h-[612px]';
+
+function AdminReportSkeletonRows({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, index) => (
+        <div
+          key={index}
+          className="min-h-[92px] border border-border/40 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-1/20 animate-pulse"
+          aria-hidden="true"
+        >
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-lg shrink-0 border border-border/40 bg-surface-2/60" />
+            <div className="flex flex-col min-w-0 flex-1 gap-2">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-44 max-w-full rounded bg-surface-2/70" />
+                <div className="h-4 w-14 rounded-full bg-surface-2/60" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="h-3 w-24 rounded bg-surface-2/50" />
+                <div className="h-3 w-32 rounded bg-surface-2/50" />
+                <div className="h-3 w-16 rounded bg-surface-2/50" />
+                <div className="h-3 w-20 rounded bg-surface-2/50" />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-surface-2/60" />
+            <div className="w-8 h-8 rounded-lg bg-surface-2/60" />
+            <div className="w-8 h-8 rounded-lg bg-surface-2/60" />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function AdminTooltipButton({
+  label,
+  disabled,
+  children,
+}: {
+  label: string;
+  disabled?: boolean | undefined;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {disabled ? <span className="inline-flex">{children}</span> : children}
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{label}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export default function AdminDashboard() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -35,9 +105,33 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<AdminStatusFilter>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [timeframeFilter, setTimeframeFilter] = useState<AdminTimeframeFilter>('all');
-  const { reports, loadingReports, actionLoading, updateReportStatus, deleteReport } = useAdminReports({
+  const [pageSize, setPageSize] = useState<AdminPageSize>(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const adminFilters = useMemo(
+    () => ({
+      search: searchQuery,
+      status: statusFilter,
+      category: categoryFilter,
+      timeframe: timeframeFilter,
+    }),
+    [categoryFilter, searchQuery, statusFilter, timeframeFilter]
+  );
+  const {
+    reports,
+    totalCount,
+    summary,
+    loadingReports,
+    loadingPage,
+    actionLoading,
+    updateReportStatus,
+    archiveReport,
+    restoreReport,
+  } = useAdminReports({
     user,
     isAdmin,
+    pageSize,
+    currentPage,
+    filters: adminFilters,
   });
 
   // Pantalla de carga inicial de autenticación
@@ -88,33 +182,30 @@ export default function AdminDashboard() {
   }
 
   // Métricas calculadas
-  const totalActivos = reports.filter((r) => r.status === 'ACTIVE').length;
-  const totalResueltos = reports.filter((r) => r.status === 'RESOLVED').length;
+  const totalActivos = summary.activeReports;
+  const totalResueltos = summary.resolvedReports;
   const totalValidaciones = reports.reduce((acc, r) => acc + (r.verifiedCount || 0), 0);
+  const archivedCount = summary.archivedReports;
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    statusFilter !== 'ALL' ||
+    categoryFilter !== 'ALL' ||
+    timeframeFilter !== 'all';
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safeCurrentPage = Math.min(currentPage, pageCount);
+  const pageStartIndex = totalCount === 0 ? 0 : (safeCurrentPage - 1) * pageSize;
+  const pageEndIndex = Math.min(pageStartIndex + reports.length, totalCount);
+  const canGoPrevious = safeCurrentPage > 1;
+  const canGoNext = safeCurrentPage < pageCount;
 
-  // Filtrar los reportes en el cliente
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch =
-      report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (report.description && report.description.toLowerCase().includes(searchQuery.toLowerCase()));
-      
-    const matchesStatus = statusFilter === 'ALL' || report.status === statusFilter;
-    const matchesCategory = categoryFilter === 'ALL' || report.category === categoryFilter;
-
-    // Filtro temporal local
-    const now = new Date();
-    const thresholdDate =
-      timeframeFilter === '7d'
-        ? new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        : timeframeFilter === '30d'
-        ? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        : null;
-
-    const matchesTimeframe =
-      !thresholdDate || new Date(report.createdAt) >= thresholdDate;
-
-    return matchesSearch && matchesStatus && matchesCategory && matchesTimeframe;
-  });
+  const resetPagination = () => setCurrentPage(1);
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setCategoryFilter('ALL');
+    setTimeframeFilter('all');
+    resetPagination();
+  };
 
   return (
     <div className="min-h-dvh bg-background text-foreground font-jakarta flex flex-col select-none">
@@ -150,7 +241,7 @@ export default function AdminDashboard() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
         
         {/* Sección de Tarjetas de Métricas */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           
           <div className="glass px-4 py-4 flex items-center gap-4 relative overflow-hidden">
             <div className="absolute -top-6 -left-6 w-20 h-20 bg-amber-500/5 rounded-full blur-2xl" />
@@ -184,9 +275,22 @@ export default function AdminDashboard() {
               <Users size={18} />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Validaciones Vecinales</span>
+              <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Apoyos Visibles</span>
               <span className="font-outfit font-extrabold text-2xl text-foreground mt-0.5">
-                {loadingReports ? '...' : totalValidaciones}
+                {loadingReports || loadingPage ? '...' : totalValidaciones}
+              </span>
+            </div>
+          </div>
+
+          <div className="glass px-4 py-4 flex items-center gap-4 relative overflow-hidden">
+            <div className="absolute -top-6 -left-6 w-20 h-20 bg-slate-500/5 rounded-full blur-2xl" />
+            <div className="w-10 h-10 rounded-full bg-slate-500/10 border border-slate-500/20 flex items-center justify-center text-slate-400">
+              <Archive size={18} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Reportes Archivados</span>
+              <span className="font-outfit font-extrabold text-2xl text-foreground mt-0.5">
+                {loadingReports ? '...' : archivedCount}
               </span>
             </div>
           </div>
@@ -203,7 +307,7 @@ export default function AdminDashboard() {
                 <Loader2 size={14} className="animate-spin text-muted" />
               ) : (
                 <span className="text-xs bg-surface-2 border border-border px-2 py-0.5 rounded-full text-muted font-mono font-bold">
-                  {filteredReports.length}
+                  {totalCount}
                 </span>
               )}
             </h2>
@@ -217,7 +321,10 @@ export default function AdminDashboard() {
                   type="text"
                   placeholder="Buscar reporte..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    resetPagination();
+                  }}
                   className="w-full bg-surface-1 border border-border focus:border-accent rounded-lg py-1.5 pl-9 pr-3 text-xs outline-none text-foreground transition-all placeholder:text-muted/40"
                 />
               </div>
@@ -227,7 +334,10 @@ export default function AdminDashboard() {
                 <Clock size={12} className="absolute left-2.5 text-muted pointer-events-none" />
                 <select
                   value={timeframeFilter}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setTimeframeFilter(e.target.value as AdminTimeframeFilter)}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    setTimeframeFilter(e.target.value as AdminTimeframeFilter);
+                    resetPagination();
+                  }}
                   className="bg-surface-1 border border-border rounded-lg py-1.5 pl-8 pr-2 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
                 >
                   <option value="all">Histórico</option>
@@ -241,13 +351,17 @@ export default function AdminDashboard() {
                 <Filter size={12} className="absolute left-2.5 text-muted pointer-events-none" />
                 <select
                   value={statusFilter}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value as AdminStatusFilter)}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    setStatusFilter(e.target.value as AdminStatusFilter);
+                    resetPagination();
+                  }}
                   className="bg-surface-1 border border-border rounded-lg py-1.5 pl-8 pr-2 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
                 >
-                  <option value="ALL">Todos los Estados</option>
+                                <option value="ALL">Todos los Estados</option>
                   <option value="ACTIVE">Activos</option>
                   <option value="RESOLVED">Resueltos</option>
                   <option value="DUPLICATE">Duplicados</option>
+                  <option value="DELETED">Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}</option>
                 </select>
               </div>
 
@@ -255,7 +369,10 @@ export default function AdminDashboard() {
               <div className="relative flex items-center">
                 <select
                   value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value);
+                    resetPagination();
+                  }}
                   className="bg-surface-1 border border-border rounded-lg py-1.5 px-3 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
                 >
                   <option value="ALL">Todas las Categorías</option>
@@ -266,23 +383,43 @@ export default function AdminDashboard() {
                   ))}
                 </select>
               </div>
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="h-8 px-3 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-[11px] text-muted hover:text-foreground font-bold transition-colors cursor-pointer"
+                >
+                  Limpiar
+                </button>
+              )}
             </div>
           </div>
 
           {/* Listado en Grilla de Tarjetas Moderables (Mobile First Responsivo) */}
           {loadingReports ? (
-            <div className="py-20 flex flex-col items-center justify-center gap-2 select-none text-muted">
-              <Loader2 size={24} className="animate-spin text-accent" />
-              <span className="text-[11px] font-bold tracking-wider uppercase">Cargando incidencias...</span>
+            <div className={`${ADMIN_LIST_HEIGHT_CLASS} flex flex-col gap-3 overflow-y-hidden pr-1`}>
+              <AdminReportSkeletonRows count={pageSize} />
             </div>
-          ) : filteredReports.length === 0 ? (
-            <div className="py-16 text-center select-none flex flex-col items-center gap-3 border border-dashed border-border/40 rounded-xl">
+          ) : totalCount === 0 ? (
+            <div className={`${ADMIN_LIST_HEIGHT_CLASS} text-center select-none flex flex-col items-center justify-center gap-3 border border-dashed border-border/40 rounded-xl`}>
               <AlertTriangle size={32} className="text-muted/40 animate-pulse-slow" />
               <p className="text-sm font-bold text-muted">No se encontraron reportes con los filtros aplicados.</p>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="h-9 px-4 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-xs text-foreground font-bold transition-colors cursor-pointer"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           ) : (
-            <div className="flex flex-col gap-3 max-h-[600px] overflow-y-auto pr-1 no-scrollbar">
-              {filteredReports.map((report) => {
+            <div className={`${ADMIN_LIST_HEIGHT_CLASS} visible-scrollbar flex flex-col gap-3 overflow-y-auto pr-2`}>
+              {loadingPage && reports.length === 0 ? (
+                <AdminReportSkeletonRows count={pageSize} />
+              ) : reports.map((report) => {
                 const catConfig = CATEGORIES[report.category];
                 const catColor = catConfig?.color || '#9CA3AF';
                 const hasPhotos = report.images && report.images.length > 0;
@@ -291,8 +428,12 @@ export default function AdminDashboard() {
 
                 return (
                   <div
-                    key={report.id}
-                    className="bg-surface-1/30 hover:bg-surface-1/50 border border-border/40 hover:border-border-strong rounded-xl p-4 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 pointer-events-auto"
+                                      key={report.id}
+                    className={`border border-border/40 rounded-xl p-4 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 pointer-events-auto ${
+                      report.deletedAt
+                        ? 'bg-surface-1/10 opacity-60 hover:opacity-80'
+                        : 'bg-surface-1/30 hover:bg-surface-1/50 hover:border-border-strong'
+                    }`}
                   >
                     {/* Información del Incidente */}
                     <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -310,23 +451,30 @@ export default function AdminDashboard() {
                       
                       {/* Título, Detalles e Info */}
                       <div className="flex flex-col min-w-0">
-                        <div className="flex items-center flex-wrap gap-2">
-                          <h3 className="font-outfit font-extrabold text-sm text-foreground truncate max-w-[240px] sm:max-w-md">
+                                                <div className="flex items-center flex-wrap gap-2">
+                          <h3 className={`font-outfit font-extrabold text-sm truncate max-w-[240px] sm:max-w-md ${
+                            report.deletedAt ? 'line-through text-muted' : 'text-foreground'
+                          }`}>
                             {report.title}
                           </h3>
-                          
-                          {/* Badge de Estado */}
-                          {report.status === 'ACTIVE' && (
+
+                          {/* Badges de Estado */}
+                          {report.deletedAt && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-700/40 border border-slate-600/30 text-slate-400">
+                              Archivado
+                            </span>
+                          )}
+                          {!report.deletedAt && report.status === 'ACTIVE' && (
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400">
                               Activo
                             </span>
                           )}
-                          {report.status === 'RESOLVED' && (
+                          {!report.deletedAt && report.status === 'RESOLVED' && (
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                               Resuelto
                             </span>
                           )}
-                          {report.status === 'DUPLICATE' && (
+                          {!report.deletedAt && report.status === 'DUPLICATE' && (
                             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-muted">
                               Duplicado
                             </span>
@@ -374,75 +522,208 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* Acciones de Moderación */}
-                    <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                      
-                      {/* Botón de Resolver (Solo si no está resuelto) */}
-                      {report.status !== 'RESOLVED' && (
-                        <button
-                          onClick={() => updateReportStatus(report.id, 'RESOLVED')}
-                          disabled={isOpLoading}
-                          className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-all cursor-pointer"
-                          title="Resolver Incidente"
-                        >
-                          {isOpLoading ? (
-                            <Loader2 size={13} className="animate-spin" />
-                          ) : (
-                            <Check size={14} />
+                      {/* Acciones de Moderación */}
+                     <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+
+                      {/* Acciones para reportes archivados */}
+                      {report.deletedAt ? (
+                        <AdminTooltipButton label="Restaurar reporte" disabled={isOpLoading}>
+                          <button
+                            onClick={() => restoreReport(report.id)}
+                            disabled={isOpLoading}
+                            className="h-8 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 text-[10.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                            aria-label="Restaurar reporte"
+                          >
+                            {isOpLoading ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <RotateCcw size={12} />
+                            )}
+                            <span>Restaurar</span>
+                          </button>
+                        </AdminTooltipButton>
+                      ) : (
+                        <>
+                          {/* Botón de Resolver (Solo si no está resuelto) */}
+                          {report.status !== 'RESOLVED' && (
+                            <AdminTooltipButton label="Resolver incidente" disabled={isOpLoading}>
+                              <button
+                                onClick={() => updateReportStatus(report.id, 'RESOLVED')}
+                                disabled={isOpLoading}
+                                className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-all cursor-pointer"
+                                aria-label="Resolver incidente"
+                              >
+                                {isOpLoading ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  <Check size={14} />
+                                )}
+                              </button>
+                            </AdminTooltipButton>
                           )}
-                        </button>
+
+                          {/* Botón de Marcar como Duplicado (Solo si está activo) */}
+                          {report.status === 'ACTIVE' && (
+                            <AdminTooltipButton label="Marcar como duplicado" disabled={isOpLoading}>
+                              <button
+                                onClick={() => updateReportStatus(report.id, 'DUPLICATE')}
+                                disabled={isOpLoading}
+                                className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-indigo-400 flex items-center justify-center transition-all cursor-pointer"
+                                aria-label="Marcar como duplicado"
+                              >
+                                {isOpLoading ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                              </button>
+                            </AdminTooltipButton>
+                          )}
+
+                          {/* Botón de Reactivar (Si está resuelto o duplicado) */}
+                          {report.status !== 'ACTIVE' && (
+                            <AdminTooltipButton label="Reabrir reporte" disabled={isOpLoading}>
+                              <button
+                                onClick={() => updateReportStatus(report.id, 'ACTIVE')}
+                                disabled={isOpLoading}
+                                className="btn h-8 px-2 bg-surface-2 border border-border hover:bg-surface-3 text-foreground text-[10.5px] font-bold flex items-center justify-center transition-all cursor-pointer"
+                                aria-label="Reabrir reporte"
+                              >
+                                {isOpLoading ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <span>Reabrir</span>
+                                )}
+                              </button>
+                            </AdminTooltipButton>
+                          )}
+
+                          {/* Botón de Archivar */}
+                          <AdminTooltipButton label="Archivar reporte" disabled={isOpLoading}>
+                            <button
+                              onClick={() => archiveReport(report.id)}
+                              disabled={isOpLoading}
+                              className="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 hover:bg-slate-500/20 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                              aria-label="Archivar reporte"
+                            >
+                              {isOpLoading ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <Archive size={13} />
+                              )}
+                            </button>
+                          </AdminTooltipButton>
+                        </>
                       )}
 
-                      {/* Botón de Marcar como Duplicado (Solo si no está duplicado ni resuelto) */}
-                      {report.status === 'ACTIVE' && (
-                        <button
-                          onClick={() => updateReportStatus(report.id, 'DUPLICATE')}
-                          disabled={isOpLoading}
-                          className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-indigo-400 flex items-center justify-center transition-all cursor-pointer"
-                          title="Marcar como Duplicado"
-                        >
-                          {isOpLoading ? (
-                            <Loader2 size={13} className="animate-spin" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      )}
-
-                      {/* Botón de Reactivar (Si está resuelto o duplicado) */}
-                      {report.status !== 'ACTIVE' && (
-                        <button
-                          onClick={() => updateReportStatus(report.id, 'ACTIVE')}
-                          disabled={isOpLoading}
-                          className="btn h-8 px-2 bg-surface-2 border border-border hover:bg-surface-3 text-foreground text-[10.5px] font-bold flex items-center justify-center transition-all cursor-pointer"
-                          title="Reabrir Reporte"
-                        >
-                          {isOpLoading ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <span>Reabrir</span>
-                          )}
-                        </button>
-                      )}
-
-                      {/* Botón de Eliminar Permanentemente */}
-                      <button
-                        onClick={() => deleteReport(report.id)}
-                        disabled={isOpLoading}
-                        className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 flex items-center justify-center transition-all cursor-pointer"
-                        title="Eliminar Permanentemente"
-                      >
-                        {isOpLoading ? (
-                          <Loader2 size={13} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={13} />
-                        )}
-                      </button>
-                      
                     </div>
                   </div>
                 );
               })}
+              {loadingPage && reports.length > 0 && reports.length < pageSize && (
+                <AdminReportSkeletonRows count={pageSize - reports.length} />
+              )}
+            </div>
+          )}
+
+          {!loadingReports && totalCount > 0 && (
+            <div className="relative overflow-hidden rounded-lg border border-border/60 bg-surface-1/30 shadow-sm">
+              <div className="h-1 w-full bg-surface-2">
+                <div
+                  className="h-full rounded-r-full bg-accent/35 transition-all"
+                  style={{ width: `${Math.max(8, Math.min(100, (safeCurrentPage / pageCount) * 100))}%` }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-muted">
+                  <span>
+                    0 de {totalCount} fila(s) seleccionadas
+                  </span>
+                  <span className="hidden h-3 w-px bg-border sm:inline-block" />
+                  <span className="font-mono text-[10px] text-muted/80">
+                    {pageStartIndex + 1}-{pageEndIndex} de {totalCount}
+                  </span>
+                  {hasActiveFilters && (
+                    <span className="font-mono text-[10px] text-muted/70">
+                      filtradas de {summary.totalReports}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                  <label className="flex items-center gap-2 text-[11px] font-bold text-muted">
+                    <span>Filas por pagina</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                        setPageSize(Number(e.target.value) as AdminPageSize);
+                        resetPagination();
+                      }}
+                      className="h-8 rounded-lg border border-border bg-surface-2 px-2 text-xs font-bold text-foreground outline-none transition-colors hover:bg-surface-3 cursor-pointer"
+                      aria-label="Cantidad de reportes por pagina"
+                    >
+                      {PAGE_SIZE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-[86px] text-right text-[11px] font-bold text-muted">
+                      Pagina {safeCurrentPage} de {pageCount}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <AdminTooltipButton label="Primera pagina" disabled={!canGoPrevious}>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(1)}
+                          disabled={!canGoPrevious}
+                          className="w-8 h-8 rounded-lg border border-border bg-surface-2 text-muted hover:text-foreground hover:bg-surface-3 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+                          aria-label="Primera pagina"
+                        >
+                          <ChevronsLeft size={14} />
+                        </button>
+                      </AdminTooltipButton>
+                      <AdminTooltipButton label="Pagina anterior" disabled={!canGoPrevious}>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                          disabled={!canGoPrevious}
+                          className="w-8 h-8 rounded-lg border border-border bg-surface-2 text-muted hover:text-foreground hover:bg-surface-3 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+                          aria-label="Pagina anterior"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                      </AdminTooltipButton>
+                      <AdminTooltipButton label="Pagina siguiente" disabled={!canGoNext}>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
+                          disabled={!canGoNext}
+                          className="w-8 h-8 rounded-lg border border-border bg-surface-2 text-muted hover:text-foreground hover:bg-surface-3 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+                          aria-label="Pagina siguiente"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </AdminTooltipButton>
+                      <AdminTooltipButton label="Ultima pagina" disabled={!canGoNext}>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(pageCount)}
+                          disabled={!canGoNext}
+                          className="w-8 h-8 rounded-lg border border-border bg-surface-2 text-muted hover:text-foreground hover:bg-surface-3 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center transition-colors cursor-pointer"
+                          aria-label="Ultima pagina"
+                        >
+                          <ChevronsRight size={14} />
+                        </button>
+                      </AdminTooltipButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

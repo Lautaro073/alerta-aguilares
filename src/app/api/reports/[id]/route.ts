@@ -96,7 +96,7 @@ export async function DELETE(
 
     const { data: reportRow, error: fetchError } = await supabaseAdmin
       .from('reports')
-      .select('id, city_id')
+      .select('id, city_id, deleted_at')
       .eq('id', reportId)
       .maybeSingle();
 
@@ -111,13 +111,24 @@ export async function DELETE(
       );
     }
 
-    const { error: deleteError } = await supabaseAdmin
+    if (reportRow.deleted_at) {
+      return Response.json(
+        { success: false, error: 'El reporte ya fue archivado.' },
+        { status: 409 }
+      );
+    }
+
+    // Soft delete: marcar como archivado sin eliminar el registro
+    const { error: updateError } = await supabaseAdmin
       .from('reports')
-      .delete()
+      .update({
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', reportId);
 
-    if (deleteError) {
-      throw deleteError;
+    if (updateError) {
+      throw updateError;
     }
 
     await touchPublicReportsFeed({
@@ -130,7 +141,7 @@ export async function DELETE(
     return Response.json(
       {
         success: true,
-        message: 'Reporte y metadatos asociados eliminados de forma permanente.',
+        message: 'Reporte archivado correctamente. Puede ser restaurado desde el panel de administración.',
       },
       { status: 200 }
     );
@@ -138,3 +149,4 @@ export async function DELETE(
     return serverError('DELETE_REPORT', error);
   }
 }
+

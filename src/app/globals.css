@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
+@import "tw-animate-css";
 
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS — CSS CUSTOM PROPERTIES
@@ -362,3 +363,29 @@ h1, h2, h3, h4, h5, h6 {
   scrollbar-width: none !important;
 }
 
+.visible-scrollbar {
+  scrollbar-color: rgba(139, 149, 180, 0.55) rgba(255, 255, 255, 0.04);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.visible-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.visible-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.visible-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 149, 180, 0.55);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.visible-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 244, 255, 0.65);
+  background-clip: padding-box;
+}

@@ -23,7 +23,9 @@ export interface SupabaseReportRow {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  deleted_at: string | null;
   verified_count: number | null;
+  confirmed_by: string[] | null;
   user_id: string | null;
   user_display_name: string | null;
 }
@@ -42,7 +44,9 @@ export function mapSupabaseReportToReport(row: SupabaseReportRow): Report {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     resolvedAt: row.resolved_at,
+    deletedAt: row.deleted_at,
     verifiedCount: row.verified_count || 0,
+    confirmedBy: row.confirmed_by || [],
   };
 
   if (row.user_id) {

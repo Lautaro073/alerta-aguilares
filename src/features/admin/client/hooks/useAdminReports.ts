@@ -3,24 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { User } from 'firebase/auth';
 import { Report } from '@/types/report';
-
-type ReportStatus = 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
-type AdminStatusFilter = 'ALL' | 'ACTIVE' | 'RESOLVED' | 'DUPLICATE' | 'DELETED';
-type AdminTimeframeFilter = 'all' | '7d' | '30d';
-
-interface AdminReportFilters {
-  search: string;
-  status: AdminStatusFilter;
-  category: string;
-  timeframe: AdminTimeframeFilter;
-}
-
-interface AdminReportSummary {
-  totalReports: number;
-  activeReports: number;
-  resolvedReports: number;
-  archivedReports: number;
-}
+import { EMPTY_ADMIN_SUMMARY } from '../constants/admin.constants';
+import type { AdminReportFilters, AdminReportSummary, ReportStatus } from '../types/admin.types';
 
 interface AdminReportsResponse {
   data?: Report[];
@@ -42,13 +26,6 @@ interface ReportRange {
 }
 
 const PREFETCH_PAGE_MULTIPLIER = 3;
-
-const EMPTY_SUMMARY: AdminReportSummary = {
-  totalReports: 0,
-  activeReports: 0,
-  resolvedReports: 0,
-  archivedReports: 0,
-};
 
 function getBlockSize(pageSize: number) {
   return pageSize * PREFETCH_PAGE_MULTIPLIER;
@@ -111,7 +88,7 @@ export function useAdminReports({
 }: UseAdminReportsOptions) {
   const [reportRows, setReportRows] = useState<Record<number, Report>>({});
   const [totalCount, setTotalCount] = useState(0);
-  const [summary, setSummary] = useState<AdminReportSummary>(EMPTY_SUMMARY);
+  const [summary, setSummary] = useState<AdminReportSummary>(EMPTY_ADMIN_SUMMARY);
   const [loadingReports, setLoadingReports] = useState(true);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const loadedRangesRef = useRef<ReportRange[]>([]);
@@ -171,7 +148,7 @@ export function useAdminReports({
           end: offset + returnedCount,
         });
         setTotalCount(result.count || 0);
-        setSummary(result.summary || EMPTY_SUMMARY);
+        setSummary(result.summary || EMPTY_ADMIN_SUMMARY);
         mergeReports(offset, result.data || []);
 
         return result;
@@ -196,7 +173,7 @@ export function useAdminReports({
     inFlightRangesRef.current = [];
     setReportRows({});
     setTotalCount(0);
-    setSummary(EMPTY_SUMMARY);
+    setSummary(EMPTY_ADMIN_SUMMARY);
     setLoadingReports(true);
 
     try {

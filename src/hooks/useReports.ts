@@ -1,7 +1,8 @@
 import useSWR from 'swr';
 import { CategoryId } from '@/lib/constants/categories';
 import { Report } from '@/types/report';
-import { TimeframeId } from './useMapFilter';
+
+export type TimeframeId = '24h' | '7d' | '30d' | 'all';
 
 interface UseReportsOptions {
   categories?: CategoryId[];
@@ -18,7 +19,7 @@ interface ApiResponse<T> {
 }
 
 const fetcher = async (url: string) => {
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || 'Error al obtener los reportes.');

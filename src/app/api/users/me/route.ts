@@ -1,19 +1,27 @@
 import { NextRequest } from 'next/server';
-import { adminAuth } from '@/lib/firebase/admin';
 import { serverError } from '@/lib/server/response';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+
+type UserRole = 'user' | 'admin' | 'operator' | 'official';
 
 interface UserProfileResponse {
   uid: string;
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin';
+  role: UserRole;
   createdAt: unknown;
   updatedAt: unknown;
 }
+
+type VerifiedUser = {
+  uid: string;
+  email?: string | null;
+  name?: string | null;
+  picture?: string | null;
+};
 
 async function verifyUser(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
@@ -36,10 +44,8 @@ async function verifyUser(request: NextRequest) {
     };
   }
 
-  try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    return { decodedToken };
-  } catch {
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user) {
     return {
       errorResponse: Response.json(
         { success: false, error: 'Sesion invalida o expirada.' },
@@ -47,6 +53,21 @@ async function verifyUser(request: NextRequest) {
       ),
     };
   }
+
+  const metadata = data.user.user_metadata || {};
+  const name = [metadata.display_name, metadata.full_name, metadata.name]
+    .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  const picture = [metadata.avatar_url, metadata.picture]
+    .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+  return {
+    decodedToken: {
+      uid: data.user.id,
+      email: data.user.email || null,
+      name: name || null,
+      picture: picture || null,
+    } satisfies VerifiedUser,
+  };
 }
 
 interface UserRow {
@@ -54,7 +75,7 @@ interface UserRow {
   display_name: string | null;
   email: string | null;
   photo_url: string | null;
-  role: 'user' | 'admin';
+  role: UserRole;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -65,7 +86,7 @@ function serializeProfile(data: UserRow): UserProfileResponse {
     displayName: data.display_name || null,
     email: data.email || null,
     photoURL: data.photo_url || null,
-    role: data.role === 'admin' ? 'admin' : 'user',
+    role: data.role || 'user',
     createdAt: data.created_at || null,
     updatedAt: data.updated_at || null,
   };
@@ -104,7 +125,7 @@ export async function POST(request: NextRequest) {
       display_name: displayName,
       email: existing?.email || decodedToken.email || null,
       photo_url: existing?.photo_url || decodedToken.picture || null,
-      role: existing?.role === 'admin' ? 'admin' : 'user',
+      role: existing?.role || 'user',
     };
 
     const { data: savedProfile, error: upsertError } = await supabaseAdmin

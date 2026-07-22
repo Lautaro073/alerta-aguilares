@@ -1,5 +1,4 @@
 import { AlertTriangle } from 'lucide-react';
-import { ADMIN_LIST_HEIGHT_CLASS } from '../constants/admin.constants';
 import type {
   AdminActionLoading,
   AdminPageSize,
@@ -30,12 +29,13 @@ export function AdminReportsList({
   hasActiveFilters,
   clearFilters,
   updateReportStatus,
+  updateReportArea,
   archiveReport,
   restoreReport,
 }: AdminReportsListProps) {
   if (loadingReports) {
     return (
-      <div className={`${ADMIN_LIST_HEIGHT_CLASS} flex flex-col gap-3 overflow-y-hidden pr-1`}>
+      <div className="h-[612px] flex flex-col gap-3 overflow-y-hidden pr-1">
         <AdminReportSkeletonRows count={pageSize} />
       </div>
     );
@@ -43,14 +43,14 @@ export function AdminReportsList({
 
   if (totalCount === 0) {
     return (
-      <div className={`${ADMIN_LIST_HEIGHT_CLASS} text-center select-none flex flex-col items-center justify-center gap-3 border border-dashed border-border/40 rounded-xl`}>
-        <AlertTriangle size={32} className="text-muted/40 animate-pulse-slow" />
-        <p className="text-sm font-bold text-muted">No se encontraron reportes con los filtros aplicados.</p>
+      <div className="h-[612px] flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-slate-300 text-center select-none">
+        <AlertTriangle size={32} className="animate-pulse-slow text-slate-300" />
+        <p className="text-sm font-bold text-slate-500">No se encontraron reportes con los filtros aplicados.</p>
         {hasActiveFilters && (
           <button
             type="button"
             onClick={clearFilters}
-            className="h-9 px-4 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-xs text-foreground font-bold transition-colors cursor-pointer"
+            className="h-9 cursor-pointer rounded-md border border-slate-300 bg-slate-50 px-4 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
           >
             Limpiar filtros
           </button>
@@ -60,7 +60,7 @@ export function AdminReportsList({
   }
 
   return (
-    <div className={`${ADMIN_LIST_HEIGHT_CLASS} visible-scrollbar flex flex-col gap-3 overflow-y-auto pr-2`}>
+    <div className="h-[612px] visible-scrollbar flex flex-col gap-3 overflow-y-auto pr-2">
       {loadingPage && reports.length === 0 ? (
         <AdminReportSkeletonRows count={pageSize} />
       ) : reports.map((report) => (
@@ -69,6 +69,7 @@ export function AdminReportsList({
           report={report}
           actionLoading={actionLoading}
           updateReportStatus={updateReportStatus}
+          updateReportArea={updateReportArea}
           archiveReport={archiveReport}
           restoreReport={restoreReport}
         />

@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { adminAuth } from '@/lib/firebase/admin';
 import { GetReportsQuerySchema, CreateReportSchema } from '@/lib/validators/report.schema';
 import { badRequest, tooManyRequests, serverError, forbidden } from '@/lib/server/response';
 import { hashValue } from '@/lib/server/hash';
@@ -10,8 +9,20 @@ import { getPublicReportCacheHeaders, getReportById, listPublicReports } from '@
 import { triggerReportPushNotifications } from '@/features/reports/server/reportNotifications';
 import { resolveLocationLabel } from '@/features/reports/server/locationLabel';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { createReportEvent } from '@/lib/server/reportEvents';
+import type { CategoryId } from '@/lib/constants/categories';
+import type { ReportPriority } from '@/types/report';
 
 export const dynamic = 'force-dynamic';
+
+const CATEGORY_PRIORITY = new Map<CategoryId, ReportPriority>([
+  ['ACCIDENTE', 'high'],
+  ['SEMAFORO', 'high'],
+  ['ALUMBRADO', 'high'],
+  ['BACHE', 'medium'],
+  ['SENALIZACION', 'medium'],
+  ['VEHICULO_ABANDONADO', 'medium'],
+]);
 
 /**
  * Obtiene la dirección IP del cliente desde los headers HTTP.
@@ -83,8 +94,8 @@ export async function GET(request: NextRequest) {
  * POST /api/reports
  * 
  * Crea un nuevo reporte de incidencia geolocalizado en la base de datos.
- * Aplica verificación de origen, validaciones de integridad geográfica
- * y control de rate limiting dual mediante hashes SHA-256 anonimizados.
+ * Requiere una sesión de Supabase y aplica control de rate limiting dual
+ * mediante hashes SHA-256 anonimizados.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -115,6 +126,23 @@ export async function POST(request: NextRequest) {
       return forbidden('Acceso denegado: Token de App Check inválido o ausente.');
     }
 
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return Response.json(
+        { success: false, error: 'Inicia sesión para crear una alerta.' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData.user) {
+      return Response.json(
+        { success: false, error: 'La sesión es inválida o expiró.' },
+        { status: 401 }
+      );
+    }
+
     // 2. Parsear el cuerpo de la solicitud
     let body;
     try {
@@ -129,38 +157,26 @@ export async function POST(request: NextRequest) {
       return badRequest('Validación de campos fallida.', parsedBody.error.format());
     }
 
-    const { lat, lng, category, title, description, images, fingerprintVisitorId } = parsedBody.success ? parsedBody.data : body;
+    const { lat, lng, category, title, description, images, fingerprintVisitorId, priority } = parsedBody.success ? parsedBody.data : body;
+    const reportPriority = priority || CATEGORY_PRIORITY.get(category) || 'low';
     const locationLabel = await resolveLocationLabel(lat, lng);
 
-    // 3b. Verificar si el usuario está autenticado y resolver su autoría de forma segura en el servidor
-    let userId: string | undefined = undefined;
-    let userDisplayName: string | undefined = undefined;
+    const userId = authData.user.id;
+    const metadata = authData.user.user_metadata || {};
+    const { data: userRow, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('display_name')
+      .eq('uid', userId)
+      .maybeSingle();
 
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      if (token) {
-        try {
-          const decodedToken = await adminAuth.verifyIdToken(token);
-          const uid = decodedToken.uid;
-          
-          const { data: userRow, error: userError } = await supabaseAdmin
-            .from('users')
-            .select('display_name')
-            .eq('uid', uid)
-            .maybeSingle();
+    if (userError) throw userError;
 
-          if (userError) {
-            throw userError;
-          }
-
-          userId = uid;
-          userDisplayName = userRow?.display_name || decodedToken.name || decodedToken.email?.split('@')[0] || 'Vecino Registrado';
-        } catch (err) {
-          console.warn('[POST /api/reports] Token enviado pero inválido o expirado:', err);
-        }
-      }
-    }
+    const metadataName = [metadata.display_name, metadata.full_name, metadata.name]
+      .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    const userDisplayName = userRow?.display_name
+      || metadataName
+      || authData.user.email?.split('@')[0]
+      || 'Usuario registrado';
 
     // 4. Rate Limiting Dual (Fingerprint + IP)
     const ip = getClientIp(request);
@@ -176,8 +192,8 @@ export async function POST(request: NextRequest) {
       p_description: description || null,
       p_images: images || [],
       p_location_label: locationLabel,
-      p_user_id: userId || null,
-      p_user_display_name: userDisplayName || null,
+      p_user_id: userId,
+      p_user_display_name: userDisplayName,
       p_ip_hash: ipHash,
       p_fingerprint_hash: fpHash,
       p_user_agent: request.headers.get('user-agent') || 'unknown',
@@ -185,6 +201,7 @@ export async function POST(request: NextRequest) {
       p_max_reports_fp: env.MAX_REPORTS_PER_DAY_FP,
       p_max_reports_ip: env.MAX_REPORTS_PER_DAY_IP,
       p_window_hours: env.RATE_LIMIT_WINDOW_HOURS,
+      p_priority: reportPriority,
     });
 
     if (rpcError) {
@@ -197,7 +214,7 @@ export async function POST(request: NextRequest) {
         ? new Date(rateLimitResult.reset_at)
         : new Date(Date.now() + 24 * 60 * 60 * 1000);
       return tooManyRequests(
-        'Has alcanzado el limite de reportes diarios permitidos. Por favor, intenta de nuevo manana.',
+        'Has alcanzado el limite de reportes diarios permitidos. Por favor, intenta de nuevo mañana.',
         resetAt
       );
     }
@@ -207,6 +224,15 @@ export async function POST(request: NextRequest) {
     if (!newReport) {
       throw new Error('REPORT_CREATED_BUT_NOT_FOUND');
     }
+
+    await createReportEvent({
+      reportId,
+      actorUid: userId,
+      eventType: 'created',
+      metadata: { source: 'authenticated' },
+    }).catch((err) => {
+      console.error('[POST /api/reports] No se pudo registrar evento de creacion:', err);
+    });
 
     // Trigger push notifications asynchronously (non-blocking)
     triggerReportPushNotifications(newReport).catch((err) => {

@@ -2,9 +2,9 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'CiudadAlerta Aguilares',
-    short_name: 'CiudadAlerta',
-    description: 'Sistema de Reportes y Alertas en Tiempo Real para la Ciudad de Aguilares',
+    name: 'Alertas Aguilares',
+    short_name: 'Aguilares',
+    description: 'Sistema de reportes y alertas en tiempo real para la ciudad de Aguilares',
     start_url: '/',
     display: 'standalone',
     orientation: 'portrait',

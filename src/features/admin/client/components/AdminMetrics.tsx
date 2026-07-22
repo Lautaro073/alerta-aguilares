@@ -18,27 +18,27 @@ export function AdminMetrics({
   loadingPage,
 }: AdminMetricsProps) {
   return (
-    <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
-        label="Reportes Activos"
+        label="Alertas activas"
         value={loadingReports ? '...' : activeReports}
         icon={<Activity size={18} />}
         tone="amber"
       />
       <MetricCard
-        label="Incidentes Solucionados"
+        label="Solucionadas"
         value={loadingReports ? '...' : resolvedReports}
         icon={<CheckCircle size={18} />}
         tone="emerald"
       />
       <MetricCard
-        label="Apoyos Visibles"
+        label="Confirmaciones"
         value={loadingReports || loadingPage ? '...' : visibleConfirmations}
         icon={<Users size={18} />}
         tone="indigo"
       />
       <MetricCard
-        label="Reportes Archivados"
+        label="Archivadas"
         value={loadingReports ? '...' : archivedReports}
         icon={<Archive size={18} />}
         tone="slate"
@@ -59,27 +59,20 @@ function MetricCard({
   tone: 'amber' | 'emerald' | 'indigo' | 'slate';
 }) {
   const toneClasses = {
-    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-    indigo: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400',
-    slate: 'bg-slate-500/10 border-slate-500/20 text-slate-400',
-  }[tone];
-  const glowClasses = {
-    amber: 'bg-amber-500/5',
-    emerald: 'bg-emerald-500/5',
-    indigo: 'bg-indigo-500/5',
-    slate: 'bg-slate-500/5',
+    amber: 'bg-amber-50 border-amber-200 text-amber-700',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    indigo: 'bg-sky-50 border-sky-200 text-[#075985]',
+    slate: 'bg-slate-100 border-slate-200 text-slate-600',
   }[tone];
 
   return (
-    <div className="glass px-4 py-4 flex items-center gap-4 relative overflow-hidden">
-      <div className={`absolute -top-6 -left-6 w-20 h-20 ${glowClasses} rounded-full blur-2xl`} />
-      <div className={`w-10 h-10 rounded-full border flex items-center justify-center ${toneClasses}`}>
+    <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-4">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-md border ${toneClasses}`}>
         {icon}
       </div>
       <div className="flex flex-col">
-        <span className="text-[10px] font-bold text-muted uppercase tracking-wider">{label}</span>
-        <span className="font-outfit font-extrabold text-2xl text-foreground mt-0.5">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+        <span className="font-outfit mt-0.5 text-2xl font-extrabold text-slate-950">
           {value}
         </span>
       </div>

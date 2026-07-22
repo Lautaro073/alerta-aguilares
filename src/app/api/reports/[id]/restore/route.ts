@@ -2,14 +2,16 @@ import { NextRequest } from 'next/server';
 import { verifyAdminRole } from '@/lib/server/adminAuth';
 import { serverError } from '@/lib/server/response';
 import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
+import { createReportEvent } from '@/lib/server/reportEvents';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/reports/[id]/restore
  *
- * Restaura un reporte archivado (soft-deleted) volviéndolo al estado ACTIVE.
+ * Restaura un reporte archivado (soft-deleted) volviendolo al estado PENDING.
  * Solo disponible para administradores.
  */
 export async function POST(
@@ -18,13 +20,14 @@ export async function POST(
 ) {
   try {
     const { id: reportId } = await params;
-    const { errorResponse } = await verifyAdminRole(request);
+    const { uid, errorResponse } = await verifyAdminRole(request, ['admin']);
     if (errorResponse) return errorResponse;
 
     const { data: reportRow, error: fetchError } = await supabaseAdmin
       .from('reports')
       .select('id, city_id, deleted_at')
       .eq('id', reportId)
+      .eq('city_id', DEFAULT_CITY_ID)
       .maybeSingle();
 
     if (fetchError) {
@@ -49,14 +52,23 @@ export async function POST(
       .from('reports')
       .update({
         deleted_at: null,
-        status: 'ACTIVE',
+        status: 'PENDING',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', reportId);
+      .eq('id', reportId)
+      .eq('city_id', DEFAULT_CITY_ID);
 
     if (updateError) {
       throw updateError;
     }
+
+    await createReportEvent({
+      reportId,
+      actorUid: uid,
+      eventType: 'restored',
+      cityId: reportRow.city_id,
+      metadata: { restoredToStatus: 'PENDING' },
+    });
 
     await touchPublicReportsFeed({
       cityId: reportRow.city_id,
@@ -68,8 +80,8 @@ export async function POST(
     return Response.json(
       {
         success: true,
-        message: 'Reporte restaurado correctamente y marcado como Activo.',
-        data: { id: reportId, status: 'ACTIVE' },
+        message: 'Reporte restaurado correctamente y marcado como pendiente.',
+        data: { id: reportId, status: 'PENDING' },
       },
       { status: 200 }
     );

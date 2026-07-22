@@ -1,13 +1,25 @@
 import { NextRequest } from 'next/server';
-import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
 export interface AdminRoleResult {
   uid: string;
+  role?: AdminAccessRole;
   errorResponse?: Response;
 }
 
-export async function verifyAdminRole(request: NextRequest): Promise<AdminRoleResult> {
+const ADMIN_ACCESS_ROLES = ['admin', 'operator', 'official'];
+type AdminAccessRole = (typeof ADMIN_ACCESS_ROLES)[number];
+
+async function verifyAuthUid(token: string) {
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user) return null;
+  return data.user.id;
+}
+
+export async function verifyAdminRole(
+  request: NextRequest,
+  allowedRoles: readonly AdminAccessRole[] = ADMIN_ACCESS_ROLES
+): Promise<AdminRoleResult> {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return {
@@ -31,8 +43,17 @@ export async function verifyAdminRole(request: NextRequest): Promise<AdminRoleRe
   }
 
   try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    const uid = decodedToken.uid;
+    const uid = await verifyAuthUid(token);
+    if (!uid) {
+      return {
+        uid: '',
+        errorResponse: Response.json(
+          { success: false, error: 'Sesion invalida o expirada.' },
+          { status: 401 }
+        ),
+      };
+    }
+
     const { data, error } = await supabaseAdmin
       .from('users')
       .select('role')
@@ -43,17 +64,17 @@ export async function verifyAdminRole(request: NextRequest): Promise<AdminRoleRe
       throw error;
     }
 
-    if (data?.role !== 'admin') {
+    if (!data?.role || !allowedRoles.includes(data.role)) {
       return {
         uid,
         errorResponse: Response.json(
-          { success: false, error: 'Acceso denegado. Se requieren privilegios de administrador.' },
+          { success: false, error: 'Acceso denegado. Se requiere rol interno.' },
           { status: 403 }
         ),
       };
     }
 
-    return { uid };
+    return { uid, role: data.role };
   } catch (err) {
     console.error('Error al verificar privilegios de administrador:', err);
     return {

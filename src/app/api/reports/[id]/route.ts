@@ -2,11 +2,15 @@ import { NextRequest } from 'next/server';
 import { verifyAdminRole } from '@/lib/server/adminAuth';
 import { serverError } from '@/lib/server/response';
 import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
+import { createReportEvent } from '@/lib/server/reportEvents';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { DEFAULT_CITY_ID } from '@/lib/constants/city';
+import type { ReportAssignedArea, ReportStatus } from '@/types/report';
 
 export const dynamic = 'force-dynamic';
 
-type ReportStatus = 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
+const REPORT_STATUSES: ReportStatus[] = ['PENDING', 'VERIFYING', 'IN_PROGRESS', 'RESOLVED', 'DISMISSED', 'DUPLICATE'];
+const ASSIGNED_AREAS: ReportAssignedArea[] = ['traffic', 'public_works', 'lighting', 'environment'];
 
 export async function PATCH(
   request: NextRequest,
@@ -14,10 +18,10 @@ export async function PATCH(
 ) {
   try {
     const { id: reportId } = await params;
-    const { errorResponse } = await verifyAdminRole(request);
+    const { uid, errorResponse } = await verifyAdminRole(request, ['admin', 'official']);
     if (errorResponse) return errorResponse;
 
-    let body: { status?: ReportStatus };
+    let body: { status?: ReportStatus; assignedArea?: ReportAssignedArea | null; duplicateOfReportId?: string | null };
     try {
       body = await request.json();
     } catch {
@@ -28,17 +32,57 @@ export async function PATCH(
     }
 
     const { status } = body;
-    if (!status || !['ACTIVE', 'RESOLVED', 'DUPLICATE'].includes(status)) {
+    if (!status && body.assignedArea === undefined) {
       return Response.json(
-        { success: false, error: 'Estado invalido. Debe ser ACTIVE, RESOLVED o DUPLICATE.' },
+        { success: false, error: 'No hay cambios para aplicar.' },
         { status: 400 }
       );
     }
 
+    if (status && !REPORT_STATUSES.includes(status)) {
+      return Response.json(
+        { success: false, error: 'Estado invalido.' },
+        { status: 400 }
+      );
+    }
+
+    if (body.assignedArea !== undefined && body.assignedArea !== null && !ASSIGNED_AREAS.includes(body.assignedArea)) {
+      return Response.json(
+        { success: false, error: 'Area asignada invalida.' },
+        { status: 400 }
+      );
+    }
+
+    if (status === 'DUPLICATE' && body.duplicateOfReportId === reportId) {
+      return Response.json(
+        { success: false, error: 'Una alerta no puede marcarse como duplicada de si misma.' },
+        { status: 400 }
+      );
+    }
+
+    if (status === 'DUPLICATE' && body.duplicateOfReportId) {
+      const { data: parentReport, error: parentError } = await supabaseAdmin
+        .from('reports')
+        .select('id')
+        .eq('id', body.duplicateOfReportId)
+        .eq('city_id', DEFAULT_CITY_ID)
+        .maybeSingle();
+
+      if (parentError) throw parentError;
+
+      if (!parentReport) {
+        return Response.json(
+          { success: false, error: 'La alerta relacionada no existe.' },
+          { status: 404 }
+        );
+      }
+    }
+
     const { data: reportRow, error: fetchError } = await supabaseAdmin
       .from('reports')
-      .select('id, city_id')
+      .select('id, city_id, status, assigned_area, duplicate_of_report_id')
       .eq('id', reportId)
+      .eq('city_id', DEFAULT_CITY_ID)
       .maybeSingle();
 
     if (fetchError) {
@@ -56,13 +100,40 @@ export async function PATCH(
     const { error: updateError } = await supabaseAdmin
       .from('reports')
       .update({
-        status,
-        resolved_at: status === 'RESOLVED' ? nowISO : null,
+        ...(status ? { status, resolved_at: status === 'RESOLVED' ? nowISO : null } : {}),
+        ...(status ? { duplicate_of_report_id: status === 'DUPLICATE' ? body.duplicateOfReportId || null : null } : {}),
+        ...(body.assignedArea !== undefined ? { assigned_area: body.assignedArea } : {}),
+        updated_at: nowISO,
       })
-      .eq('id', reportId);
+      .eq('id', reportId)
+      .eq('city_id', DEFAULT_CITY_ID);
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (status) {
+      await createReportEvent({
+        reportId,
+        actorUid: uid,
+        eventType: status === 'DUPLICATE' ? 'duplicate_marked' : 'status_changed',
+        cityId: reportRow.city_id,
+        metadata: {
+          from: reportRow.status,
+          to: status,
+          duplicateOfReportId: status === 'DUPLICATE' ? body.duplicateOfReportId || null : null,
+        },
+      });
+    }
+
+    if (body.assignedArea !== undefined) {
+      await createReportEvent({
+        reportId,
+        actorUid: uid,
+        eventType: 'area_changed',
+        cityId: reportRow.city_id,
+        metadata: { from: reportRow.assigned_area, to: body.assignedArea },
+      });
     }
 
     await touchPublicReportsFeed({
@@ -75,8 +146,8 @@ export async function PATCH(
     return Response.json(
       {
         success: true,
-        message: `Estado del reporte actualizado a ${status} con exito.`,
-        data: { id: reportId, status },
+        message: 'Reporte actualizado con exito.',
+        data: { id: reportId, status, assignedArea: body.assignedArea },
       },
       { status: 200 }
     );
@@ -91,13 +162,14 @@ export async function DELETE(
 ) {
   try {
     const { id: reportId } = await params;
-    const { errorResponse } = await verifyAdminRole(request);
+    const { uid, errorResponse } = await verifyAdminRole(request, ['admin']);
     if (errorResponse) return errorResponse;
 
     const { data: reportRow, error: fetchError } = await supabaseAdmin
       .from('reports')
       .select('id, city_id, deleted_at')
       .eq('id', reportId)
+      .eq('city_id', DEFAULT_CITY_ID)
       .maybeSingle();
 
     if (fetchError) {
@@ -125,11 +197,20 @@ export async function DELETE(
         deleted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', reportId);
+      .eq('id', reportId)
+      .eq('city_id', DEFAULT_CITY_ID);
 
     if (updateError) {
       throw updateError;
     }
+
+    await createReportEvent({
+      reportId,
+      actorUid: uid,
+      eventType: 'hidden',
+      cityId: reportRow.city_id,
+      metadata: { deletedAt: new Date().toISOString() },
+    });
 
     await touchPublicReportsFeed({
       cityId: reportRow.city_id,

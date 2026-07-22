@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -17,24 +17,25 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Alertas Aguilares — Reportá tu barrio",
+  title: "Alertas Aguilares - Reporta tu barrio",
   description:
-    "Plataforma vecinal de reportes geolocalizados para Aguilares, Tucumán. Informá baches, alumbrado, basura, inundaciones y más en tiempo real.",
+    "Plataforma vecinal de reportes geolocalizados para Aguilares, Tucumán. Informa problemas urbanos en tiempo real.",
   keywords: [
     "Aguilares",
-    "Tucumán",
+    "Tucuman",
     "reportes ciudadanos",
     "mapa interactivo",
     "vecinos",
     "baches",
-    "alumbrado",
-    "basura",
+    "semaforos",
+    "transito",
+    "transporte",
   ],
   authors: [{ name: "Alertas Aguilares" }],
   robots: { index: true, follow: true },
   openGraph: {
     title: "Alertas Aguilares",
-    description: "Reportá problemas urbanos en Aguilares, Tucumán.",
+    description: "Reporta problemas urbanos en Aguilares, Tucumán.",
     type: "website",
     locale: "es_AR",
     siteName: "Alertas Aguilares",
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "CiudadAlerta",
+    title: "Alertas Aguilares",
   },
 };
 
@@ -56,7 +57,7 @@ export const viewport: Viewport = {
 import { AuthProvider } from "@/hooks/useAuth";
 import PwaRegister from "@/components/layout/PwaRegister";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
+import { Toaster } from "sonner";
 
 export default function RootLayout({
   children,
@@ -74,6 +75,7 @@ export default function RootLayout({
             {children}
           </AuthProvider>
         </TooltipProvider>
+        <Toaster richColors position="top-right" />
         <PwaRegister />
       </body>
     </html>

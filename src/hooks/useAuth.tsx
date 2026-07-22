@@ -1,50 +1,53 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  User,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  onIdTokenChanged,
-  updateProfile,
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabaseBrowser } from '@/lib/supabase/client';
 
 interface UserProfile {
   uid: string;
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'operator' | 'official';
   createdAt: unknown;
   updatedAt: unknown;
 }
 
+export interface AuthUser {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+  getIdToken: (forceRefresh?: boolean) => Promise<string>;
+}
+
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   profile: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, displayName: string) => Promise<boolean>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const ADMIN_ROLES: UserProfile['role'][] = ['admin', 'operator', 'official'];
 
-async function syncUserProfile(firebaseUser: User, displayName?: string): Promise<UserProfile> {
-  const token = await firebaseUser.getIdToken();
+function hasAdminAccess(role: UserProfile['role']) {
+  return ADMIN_ROLES.includes(role);
+}
+
+async function syncSupabaseProfile(session: Session): Promise<{ user: AuthUser; profile: UserProfile }> {
   const response = await fetch('/api/users/me', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ displayName }),
+    body: JSON.stringify({}),
   });
 
   if (!response.ok) {
@@ -53,89 +56,128 @@ async function syncUserProfile(firebaseUser: User, displayName?: string): Promis
   }
 
   const result = await response.json();
-  return result.data as UserProfile;
+  const profile = result.data as UserProfile;
+
+  return {
+    profile,
+    user: {
+      uid: session.user.id,
+      displayName: profile.displayName,
+      email: profile.email || session.user.email || null,
+      photoURL: profile.photoURL,
+      getIdToken: async () => {
+        const { data } = await supabaseBrowser.auth.getSession();
+        return data.session?.access_token || session.access_token;
+      },
+    },
+  };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+    let cancelled = false;
+
+    const applySupabaseSession = async (session: Session | null, finishLoading = true) => {
       try {
-        setLoading(true);
-        if (firebaseUser) {
-          setUser(firebaseUser);
-          const userProfile = await syncUserProfile(firebaseUser);
-          setProfile(userProfile);
-          setIsAdmin(userProfile.role === 'admin');
-        } else {
+        if (finishLoading && !initializedRef.current) setLoading(true);
+        if (!session) {
           setUser(null);
           setProfile(null);
           setIsAdmin(false);
+          return;
         }
+
+        const result = await syncSupabaseProfile(session);
+        if (cancelled) return;
+
+        setUser(result.user);
+        setProfile(result.profile);
+        setIsAdmin(hasAdminAccess(result.profile.role));
       } catch (error) {
-        console.error('Error al sincronizar el estado de autenticacion:', error);
-        setUser(firebaseUser);
+        console.error('Error al sincronizar el empleado de Supabase:', error);
+        if (cancelled) return;
+        setUser(null);
         setProfile(null);
         setIsAdmin(false);
       } finally {
-        setLoading(false);
+        if (!cancelled && finishLoading) {
+          initializedRef.current = true;
+          setLoading(false);
+        }
       }
+    };
+
+    void supabaseBrowser.auth.getSession().then(({ data }) => applySupabaseSession(data.session));
+
+    const { data: authListener } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+      void applySupabaseSession(session);
     });
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      authListener.subscription.unsubscribe();
+    };
   }, []);
-
-  const signInWithGoogle = async () => {
-    try {
-      setLoading(true);
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error('Error al iniciar sesion con Google:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      await signInWithEmailAndPassword(auth, email, password);
+      const { data, error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      if (data.session) {
+        const result = await syncSupabaseProfile(data.session);
+        setUser(result.user);
+        setProfile(result.profile);
+        setIsAdmin(hasAdminAccess(result.profile.role));
+      }
     } catch (error) {
       console.error('Error al iniciar sesion con Email:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabaseBrowser.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+
+    if (error) throw error;
+  };
+
   const signUpWithEmail = async (email: string, password: string, displayName: string) => {
-    try {
-      setLoading(true);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName });
-      const userProfile = await syncUserProfile(userCredential.user, displayName);
-      setUser(userCredential.user);
-      setProfile(userProfile);
-      setIsAdmin(userProfile.role === 'admin');
-    } catch (error) {
-      console.error('Error al registrarse con Email:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    const { data, error } = await supabaseBrowser.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { display_name: displayName.trim() },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+
+    if (error) throw error;
+    if (!data.session) return false;
+
+    const result = await syncSupabaseProfile(data.session);
+    setUser(result.user);
+    setProfile(result.profile);
+    setIsAdmin(hasAdminAccess(result.profile.role));
+    return true;
   };
 
   const signOut = async () => {
     try {
       setLoading(true);
-      await firebaseSignOut(auth);
+      await supabaseBrowser.auth.signOut();
     } catch (error) {
       console.error('Error al cerrar sesion:', error);
       throw error;

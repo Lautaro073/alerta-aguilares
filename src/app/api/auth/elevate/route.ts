@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { adminAuth } from '@/lib/firebase/admin';
 import { forbidden, serverError } from '@/lib/server/response';
 import { supabaseAdmin } from '@/lib/supabase/server';
 
@@ -30,13 +29,11 @@ export async function POST(request: NextRequest) {
       return forbidden('Token de autenticación vacío.');
     }
 
-    let uid: string;
-    try {
-      const decodedToken = await adminAuth.verifyIdToken(token);
-      uid = decodedToken.uid;
-    } catch {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData.user) {
       return forbidden('Token de autenticación inválido o expirado.');
     }
+    const uid = authData.user.id;
 
     const { data: userRow, error: fetchError } = await supabaseAdmin
       .from('users')

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { badRequest, serverError } from '@/lib/server/response';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabaseAdmin.from('fcm_tokens').upsert({
       token,
       uid: uid || null,
+      city_id: DEFAULT_CITY_ID,
     }, { onConflict: 'token' });
 
     if (error) {

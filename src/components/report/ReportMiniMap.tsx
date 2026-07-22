@@ -3,15 +3,8 @@
 import { useRef, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { AGUILARES_BOUNDS } from '@/lib/constants/map';
-import { isWithinAguilares } from '@/lib/utils/geoUtils';
 import { renderToString } from 'react-dom/server';
 import { MapPin, AlertCircle, CheckCircle2, Search, Loader2 } from 'lucide-react';
-
-// Configurar los límites geográficos locales para restringir la cámara
-const southwestCorner = L.latLng(AGUILARES_BOUNDS.bbox.south, AGUILARES_BOUNDS.bbox.west);
-const northeastCorner = L.latLng(AGUILARES_BOUNDS.bbox.north, AGUILARES_BOUNDS.bbox.east);
-const geobounds = L.latLngBounds(southwestCorner, northeastCorner);
 
 // Renderizar el icono de selección de Lucide a HTML de SVG
 const pinHtml = renderToString(
@@ -78,7 +71,6 @@ interface ReportMiniMapProps {
  */
 export default function ReportMiniMap({ lat, lng, onChangeLocation }: ReportMiniMapProps) {
   const markerRef = useRef<L.Marker>(null);
-  const [geoError, setGeoError] = useState<string | null>(null);
 
   // Estado del buscador de calles
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,17 +118,10 @@ export default function ReportMiniMap({ lat, lng, onChangeLocation }: ReportMini
     }
   };
 
-  // Validar y reportar ubicación (clic o drag del pin)
   const handleLocationUpdate = (newLat: number, newLng: number) => {
     if (searchError) setSearchError(null);
     if (searchSuccess) setSearchSuccess(null);
-    if (isWithinAguilares(newLat, newLng)) {
-      setGeoError(null);
-      onChangeLocation(newLat, newLng);
-    } else {
-      setGeoError('Límites geográficos excedidos: Por favor ubique el reporte dentro de Aguilares.');
-      setTimeout(() => setGeoError(null), 3000);
-    }
+    onChangeLocation(newLat, newLng);
   };
 
   // Manejador del arrastre del pin (dragend)
@@ -223,19 +208,23 @@ export default function ReportMiniMap({ lat, lng, onChangeLocation }: ReportMini
         <MapContainer
           center={[lat, lng]}
           zoom={16}
-          minZoom={14}
+          minZoom={13}
           maxZoom={18}
-          maxBounds={geobounds}
-          maxBoundsViscosity={1.0}
           zoomControl={false}
           className="w-full h-full z-0"
         >
-          {/* Capa base de CartoDB Dark Matter */}
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution='Map data &copy; Google'
+            url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2"
+            subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
+            className="google-map-tile"
+            tileSize={512}
+            zoomOffset={-1}
+            updateWhenZooming={false}
+            updateWhenIdle={true}
+            keepBuffer={4}
             maxZoom={18}
-            maxNativeZoom={18}
+            maxNativeZoom={19}
           />
 
           {/* Recentrar el mapa cuando el usuario busca una dirección */}
@@ -259,16 +248,6 @@ export default function ReportMiniMap({ lat, lng, onChangeLocation }: ReportMini
           {lat.toFixed(5)}, {lng.toFixed(5)}
         </div>
       </div>
-
-      {/* Banner de error geográfico */}
-      {geoError && (
-        <div className="bg-rose-500/10 border border-rose-500/25 p-2 rounded text-center animate-slide-down shrink-0 flex items-center justify-center gap-1.5">
-          <span className="font-jakarta text-[10.5px] font-bold text-rose-400 flex items-center gap-1.5">
-            <AlertCircle size={12} className="shrink-0" />
-            <span>{geoError}</span>
-          </span>
-        </div>
-      )}
 
     </div>
   );

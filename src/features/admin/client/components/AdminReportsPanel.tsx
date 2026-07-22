@@ -73,18 +73,19 @@ export function AdminReportsPanel({
   resetPagination,
   clearFilters,
   updateReportStatus,
+  updateReportArea,
   archiveReport,
   restoreReport,
 }: AdminReportsPanelProps) {
   return (
-    <section className="glass border border-border p-4 sm:p-5 flex flex-col gap-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-4 select-none">
-        <h2 className="font-outfit font-extrabold text-base sm:text-lg tracking-tight text-foreground flex items-center gap-2">
-          <span>Listado de Reportes</span>
+    <section id="alertas" className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-4 select-none md:flex-row md:items-center">
+        <h2 className="font-outfit flex items-center gap-2 text-base font-extrabold tracking-tight text-slate-950 sm:text-lg">
+          <span>Alertas recientes</span>
           {loadingReports ? (
-            <Loader2 size={14} className="animate-spin text-muted" />
+            <Loader2 size={14} className="animate-spin text-slate-400" />
           ) : (
-            <span className="text-xs bg-surface-2 border border-border px-2 py-0.5 rounded-full text-muted font-mono font-bold">
+            <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-500">
               {totalCount}
             </span>
           )}
@@ -116,6 +117,7 @@ export function AdminReportsPanel({
         hasActiveFilters={hasActiveFilters}
         clearFilters={clearFilters}
         updateReportStatus={updateReportStatus}
+        updateReportArea={updateReportArea}
         archiveReport={archiveReport}
         restoreReport={restoreReport}
       />

@@ -4,11 +4,11 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'report_status') THEN
-    CREATE TYPE report_status AS ENUM ('ACTIVE', 'RESOLVED', 'DUPLICATE');
+    CREATE TYPE report_status AS ENUM ('ACTIVE', 'RESOLVED', 'DUPLICATE', 'PENDING', 'VERIFYING', 'IN_PROGRESS', 'DISMISSED');
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
-    CREATE TYPE user_role AS ENUM ('user', 'admin');
+    CREATE TYPE user_role AS ENUM ('user', 'admin', 'operator', 'brigadier', 'viewer');
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'rate_limit_type') THEN
@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT,
   photo_url TEXT,
   role user_role NOT NULL DEFAULT 'user',
+  area TEXT,
+  shift TEXT,
+  employee_status TEXT CHECK (employee_status IS NULL OR employee_status IN ('pending', 'active', 'disabled')),
+  employee_created_by TEXT REFERENCES users(uid) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -37,43 +41,47 @@ CREATE TABLE IF NOT EXISTS reports (
   ) STORED,
   category TEXT NOT NULL CHECK (
     category IN (
-      'ALUMBRADO',
       'BACHE',
-      'INSEGURIDAD',
-      'BASURA',
-      'INUNDACION',
-      'OBRA_PELIGROSA',
-      'AGUA_CLOACA',
-      'ARBOL',
       'SEMAFORO',
-      'MALEZAS',
+      'OBRA_PELIGROSA',
+      'INUNDACION',
       'ANIMALES',
       'VEREDA',
-      'QUEMA_RUIDO',
-      'PLAGAS_DENGUE',
-      'PLAZA_JUEGOS',
-      'CONTAMINACION',
-      'ACCESIBILIDAD',
-      'VANDALISMO',
-      'BROMATOLOGIA',
       'CABLES_POSTES',
-      'TRANSPORTE',
-      'OTRO'
+      'TRANSPORTE'
     )
   ),
   title TEXT NOT NULL,
   description TEXT,
   images TEXT[] NOT NULL DEFAULT '{}',
-  status report_status NOT NULL DEFAULT 'ACTIVE',
+  status report_status NOT NULL DEFAULT 'PENDING',
+  priority TEXT CHECK (priority IS NULL OR priority IN ('high', 'medium', 'low')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   resolved_at TIMESTAMPTZ,
   verified_count INTEGER NOT NULL DEFAULT 0,
   user_id TEXT REFERENCES users(uid) ON DELETE SET NULL,
-  user_display_name TEXT
+  user_display_name TEXT,
+  duplicate_of_report_id TEXT REFERENCES reports(id) ON DELETE SET NULL
 );
 
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS location_label TEXT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_of_report_id TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'reports_duplicate_of_report_id_fkey'
+  ) THEN
+    ALTER TABLE reports
+    ADD CONSTRAINT reports_duplicate_of_report_id_fkey
+    FOREIGN KEY (duplicate_of_report_id)
+    REFERENCES reports(id)
+    ON DELETE SET NULL;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS report_private_meta (
   report_id UUID PRIMARY KEY REFERENCES reports(id) ON DELETE CASCADE,
@@ -91,12 +99,28 @@ CREATE TABLE IF NOT EXISTS report_confirmations (
   PRIMARY KEY (report_id, uid)
 );
 
+CREATE TABLE IF NOT EXISTS report_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  city_id TEXT NOT NULL DEFAULT 'aguilares-tucuman',
+  report_id TEXT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  actor_uid TEXT REFERENCES users(uid) ON DELETE SET NULL,
+  event_type TEXT NOT NULL CHECK (
+    event_type IN ('created', 'status_changed', 'area_changed', 'hidden', 'restored', 'duplicate_marked', 'owner_feedback')
+  ),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS fcm_tokens (
   token TEXT PRIMARY KEY,
   uid TEXT REFERENCES users(uid) ON DELETE SET NULL,
+  city_id TEXT NOT NULL DEFAULT 'aguilares-tucuman',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS fcm_tokens_city_id_idx
+ON fcm_tokens (city_id);
 
 CREATE TABLE IF NOT EXISTS rate_limits (
   id TEXT PRIMARY KEY,
@@ -117,14 +141,18 @@ CREATE TABLE IF NOT EXISTS public_feeds (
 
 CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_category_status_created ON reports (category, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_duplicate_of_report_id ON reports (duplicate_of_report_id);
 CREATE INDEX IF NOT EXISTS idx_reports_location ON reports USING GIST (location);
 CREATE INDEX IF NOT EXISTS idx_report_confirmations_uid ON report_confirmations (uid);
+CREATE INDEX IF NOT EXISTS idx_report_events_report_created ON report_events (report_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_report_events_city_created ON report_events (city_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rate_limits_type_hash ON rate_limits (type, hash);
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_private_meta ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_confirmations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE report_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fcm_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public_feeds ENABLE ROW LEVEL SECURITY;
@@ -211,7 +239,8 @@ CREATE OR REPLACE FUNCTION create_report_with_rate_limit(
   p_origin TEXT,
   p_max_reports_fp INTEGER,
   p_max_reports_ip INTEGER,
-  p_window_hours INTEGER
+  p_window_hours INTEGER,
+  p_priority TEXT DEFAULT NULL
 )
 RETURNS TABLE(
   allowed BOOLEAN,
@@ -231,6 +260,14 @@ DECLARE
   v_report_id TEXT;
   v_remaining INTEGER;
   v_reset_at TIMESTAMPTZ;
+  v_priority TEXT := COALESCE(
+    p_priority,
+    CASE
+      WHEN p_category IN ('ACCIDENTE', 'SEMAFORO', 'ALUMBRADO') THEN 'high'
+      WHEN p_category IN ('BACHE', 'SENALIZACION', 'VEHICULO_ABANDONADO') THEN 'medium'
+      ELSE 'low'
+    END
+  );
 BEGIN
   INSERT INTO rate_limits (id, type, hash, count, window_start, last_report_at)
   VALUES
@@ -294,7 +331,9 @@ BEGIN
     images,
     location_label,
     user_id,
-    user_display_name
+    user_display_name,
+    status,
+    priority
   )
   VALUES (
     p_city_id,
@@ -306,7 +345,9 @@ BEGIN
     COALESCE(p_images, '{}'),
     NULLIF(TRIM(p_location_label), ''),
     p_user_id,
-    p_user_display_name
+    p_user_display_name,
+    'PENDING'::report_status,
+    v_priority
   )
   RETURNING id INTO v_report_id;
 
@@ -358,7 +399,7 @@ BEGIN
     RAISE EXCEPTION 'NOT_FOUND';
   END IF;
 
-  IF v_status <> 'ACTIVE' THEN
+  IF v_status NOT IN ('ACTIVE', 'PENDING', 'VERIFYING', 'IN_PROGRESS') THEN
     RAISE EXCEPTION 'REPORT_NOT_ACTIVE';
   END IF;
 

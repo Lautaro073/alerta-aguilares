@@ -21,6 +21,7 @@ export default function FAB({ onClick, reportCount }: FABProps) {
     <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-[1050] select-none pointer-events-none animate-slide-up">
       {/* Botón interactivo principal */}
       <button
+        data-tour="map-create-alert"
         onClick={onClick}
         className="pointer-events-auto btn btn-primary flex items-center justify-center gap-2.5 h-14 rounded-full px-5 shadow-lg shadow-accent/40 border border-white/10 group transition-all duration-300 hover:scale-105 active:scale-95 glow-accent"
         title="Crear Nueva Alerta Ciudadana"

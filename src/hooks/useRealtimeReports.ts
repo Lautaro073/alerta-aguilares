@@ -5,8 +5,7 @@ import { CategoryId } from '@/lib/constants/categories';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { Report } from '@/types/report';
-import { TimeframeId } from './useMapFilter';
-import { useReports } from './useReports';
+import { TimeframeId, useReports } from './useReports';
 
 interface UseRealtimeReportsOptions {
   categories?: CategoryId[];

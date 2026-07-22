@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     queryLat = lat;
     queryLng = lng;
 
-    const apiKey = env.GOOGLE_MAPS_API_KEY;
+    const apiKey = env.GOOGLE_MAPS_SERVER_API_KEY;
 
     // Si la clave de Google Maps no está configurada, servimos el fallback SVG premium de inmediato
     if (!apiKey) {

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { adminAuth } from '@/lib/firebase/admin';
 import { serverError } from '@/lib/server/response';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * POST /api/reports/[id]/confirm
  * 
  * Permite a los vecinos confirmar/apoyar un incidente activo ("Yo también veo este problema").
- * Requiere Bearer Token de Firebase Auth. Realiza una transacción de base de datos
+ * Requiere Bearer Token de Supabase Auth. Realiza una transacción de base de datos
  * atómica tipo toggle (agrega el uid si no existe, o lo remueve si ya estaba).
  */
 export async function POST(
@@ -36,16 +36,37 @@ export async function POST(
       );
     }
 
-    // 2. Verificar el ID Token
-    let uid: string;
-    try {
-      const decodedToken = await adminAuth.verifyIdToken(token);
-      uid = decodedToken.uid;
-    } catch (err) {
-      console.warn('❌ Token de autenticación inválido:', err);
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData.user) {
       return Response.json(
         { success: false, error: 'Sesión inválida o expirada.' },
         { status: 401 }
+      );
+    }
+    const uid = authData.user.id;
+
+    const { data: reportRow, error: reportError } = await supabaseAdmin
+      .from('reports')
+      .select('id, user_id')
+      .eq('id', reportId)
+      .eq('city_id', DEFAULT_CITY_ID)
+      .maybeSingle();
+
+    if (reportError) {
+      throw reportError;
+    }
+
+    if (!reportRow) {
+      return Response.json(
+        { success: false, error: 'El reporte especificado no existe.' },
+        { status: 404 }
+      );
+    }
+
+    if (reportRow.user_id === uid) {
+      return Response.json(
+        { success: false, error: 'No podés validar tu propia alerta.' },
+        { status: 403 }
       );
     }
 
@@ -78,7 +99,7 @@ export async function POST(
     }
     if (error instanceof Error && error.message === 'REPORT_NOT_ACTIVE') {
       return Response.json(
-        { success: false, error: 'Solo se pueden confirmar reportes en estado activo.' },
+        { success: false, error: 'Solo se pueden confirmar reportes abiertos.' },
         { status: 400 }
       );
     }

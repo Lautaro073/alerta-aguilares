@@ -11,7 +11,8 @@ export async function triggerReportPushNotifications(report: Report) {
   try {
     const { data, error } = await supabaseAdmin
       .from('fcm_tokens')
-      .select('token');
+      .select('token')
+      .eq('city_id', report.cityId);
 
     if (error) {
       throw error;

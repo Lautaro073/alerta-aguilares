@@ -11,10 +11,10 @@ import { ArrowLeft, ShieldCheck, EyeOff, Lock, Scale, MapPin } from 'lucide-reac
 export default function PrivacyPage() {
   return (
     <main className="min-h-dvh bg-[#080d1a] text-foreground font-jakarta flex flex-col items-center px-4 py-8 md:py-16 selection:bg-accent/30 selection:text-white">
-      
+
       {/* Contenedor principal con limitador de ancho */}
       <div className="w-full max-w-3xl flex flex-col gap-8 md:gap-12 animate-fade-in">
-        
+
         {/* Encabezado con Botón de Regreso y Branding */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6 select-none">
           <div className="flex flex-col">
@@ -43,8 +43,8 @@ export default function PrivacyPage() {
             Tu privacidad es <span className="gradient-text">nuestra prioridad</span>
           </h2>
           <p className="font-jakarta text-sm text-muted leading-relaxed max-w-2xl">
-            Queremos que te sientas completamente seguro al reportar incidentes en tu barrio. 
-            Acá te explicamos de manera simple qué datos guardamos, para qué se usan y cómo 
+            Queremos que te sientas completamente seguro al reportar incidentes en tu barrio.
+            Acá te explicamos de manera simple qué datos guardamos, para qué se usan y cómo
             protegemos tu identidad al 100%.
           </p>
         </section>
@@ -62,8 +62,8 @@ export default function PrivacyPage() {
                 1. 100% Anónimo y sin registros molestos
               </h3>
               <p className="font-jakarta text-xs text-muted leading-relaxed">
-                No te pedimos nombre, correo electrónico, número de teléfono ni contraseñas. 
-                Cualquier vecino puede acceder a la plataforma y reportar un problema de forma 
+                No te pedimos nombre, correo electrónico, número de teléfono ni contraseñas.
+                Cualquier vecino puede acceder a la plataforma y reportar un problema de forma
                 directa e inmediata sin tener que crear una cuenta de usuario.
               </p>
             </div>
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
               </p>
               <ul className="list-disc list-inside font-jakarta text-xs text-muted leading-relaxed pl-2 flex flex-col gap-1 mt-1">
                 <li>La ubicación geográfica exacta en el mapa (latitud y longitud).</li>
-                <li>La categoría del incidente (Bache, Inseguridad, Alumbrado, etc.).</li>
+                <li>La categoría del incidente de tránsito o problema urbano (Accidente, Bache, Semáforo, Señalización, Vehículo abandonado, Alumbrado).</li>
                 <li>El título breve y los detalles descriptivos opcionales que hayas escrito.</li>
                 <li>Las fotos de evidencia que hayas subido de forma voluntaria.</li>
                 <li>La fecha y hora exacta en la que se registró el reporte.</li>

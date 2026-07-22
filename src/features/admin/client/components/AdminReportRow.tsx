@@ -34,19 +34,19 @@ export function AdminReportRow({
   const catColor = catConfig?.color || '#9CA3AF';
   const hasPhotos = report.images && report.images.length > 0;
   const isOpLoading = actionLoading[report.id];
-  const locationText = report.locationLabel || 'Dirección no disponible';
+  const locationText = report.locationLabel || 'Direccion no disponible';
 
   return (
     <div
-      className={`border border-border/40 rounded-xl p-4 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 pointer-events-auto ${
+      className={`pointer-events-auto flex flex-col justify-between gap-4 rounded-lg border p-4 transition-all md:flex-row md:items-center ${
         report.deletedAt
-          ? 'bg-surface-1/10 opacity-60 hover:opacity-80'
-          : 'bg-surface-1/30 hover:bg-surface-1/50 hover:border-border-strong'
+          ? 'border-slate-200 bg-slate-50 opacity-70 hover:opacity-90'
+          : 'border-slate-200 bg-white hover:bg-slate-50'
       }`}
     >
-      <div className="flex items-start gap-3 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border"
           style={{
             backgroundColor: `${catColor}12`,
             borderColor: `${catColor}30`,
@@ -56,43 +56,31 @@ export function AdminReportRow({
           <CategoryIcon name={catConfig?.iconName || 'HelpCircle'} size={18} color={catColor} />
         </div>
 
-        <div className="flex flex-col min-w-0">
-          <div className="flex items-center flex-wrap gap-2">
-            <h3 className={`font-outfit font-extrabold text-sm truncate max-w-[240px] sm:max-w-md ${
-              report.deletedAt ? 'line-through text-muted' : 'text-foreground'
+        <div className="flex min-w-0 flex-col">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className={`font-outfit max-w-[240px] truncate text-sm font-extrabold sm:max-w-md ${
+              report.deletedAt ? 'line-through text-slate-400' : 'text-slate-900'
             }`}>
               {report.title}
             </h3>
 
-            {report.deletedAt && (
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-700/40 border border-slate-600/30 text-slate-400">
-                Archivado
-              </span>
-            )}
-            {!report.deletedAt && report.status === 'ACTIVE' && (
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                Activo
-              </span>
-            )}
-            {!report.deletedAt && report.status === 'RESOLVED' && (
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                Resuelto
-              </span>
-            )}
-            {!report.deletedAt && report.status === 'DUPLICATE' && (
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-muted">
-                Duplicado
-              </span>
-            )}
+            {report.deletedAt && <StatusChip tone="slate">Archivado</StatusChip>}
+            {!report.deletedAt && report.status === 'PENDING' && <StatusChip tone="amber">Pendiente</StatusChip>}
+            {!report.deletedAt && report.status === 'VERIFYING' && <StatusChip tone="amber">En verificacion</StatusChip>}
+            {!report.deletedAt && report.status === 'IN_PROGRESS' && <StatusChip tone="amber">En proceso</StatusChip>}
+            {!report.deletedAt && report.status === 'RESOLVED' && <StatusChip tone="emerald">Resuelto</StatusChip>}
+            {!report.deletedAt && report.status === 'DISMISSED' && <StatusChip tone="slate">Desestimado</StatusChip>}
+            {!report.deletedAt && report.status === 'DUPLICATE' && <StatusChip tone="slate">Duplicado</StatusChip>}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-1.5 text-[10.5px] text-muted font-medium select-none">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10.5px] font-medium text-slate-500 select-none">
             <span className="flex items-center gap-1">
               <Calendar size={11} className="shrink-0" />
               <span>
                 {new Date(report.createdAt).toLocaleDateString('es-AR', {
                   day: 'numeric',
                   month: 'short',
+                  year: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
@@ -100,45 +88,37 @@ export function AdminReportRow({
             </span>
             <span className="flex items-center gap-1 font-mono text-[9.5px]">
               <MapPin size={11} className="shrink-0" />
-              <span className="font-sans text-[10.5px]">
-                {locationText}
-              </span>
+              <span className="font-sans text-[10.5px]">{locationText}</span>
             </span>
             <span className="flex items-center gap-1">
-              <Users size={11} className="shrink-0 text-accent" />
-              <span className="text-foreground/90 font-bold">
-                {report.verifiedCount || 0} apoyos
-              </span>
+              <Users size={11} className="shrink-0 text-[#075985]" />
+              <span className="font-bold text-slate-800">{report.verifiedCount || 0} apoyos</span>
             </span>
             <span className="flex items-center gap-1">
-              <UserCircle size={11} className={`shrink-0 ${report.userDisplayName ? 'text-emerald-400' : 'text-muted/50'}`} />
-              <span className={report.userDisplayName ? 'text-emerald-400 font-bold' : 'text-muted/60 italic'}>
-                {report.userDisplayName || 'Anónimo'}
+              <UserCircle size={11} className={`shrink-0 ${report.userDisplayName ? 'text-emerald-600' : 'text-slate-300'}`} />
+              <span className={report.userDisplayName ? 'font-bold text-emerald-700' : 'italic text-slate-400'}>
+                {report.userDisplayName || 'Anonimo'}
               </span>
             </span>
             {hasPhotos && (
-              <span className="text-[9px] bg-accent/10 border border-accent/20 text-accent font-bold px-1.5 py-0.1 rounded">
-                Con Foto
+              <span className="rounded-sm border border-sky-200 bg-sky-50 px-1.5 py-0.1 text-[9px] font-bold text-[#075985]">
+                Con foto
               </span>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+      <div className="flex shrink-0 items-center gap-2 self-end md:self-center">
         {report.deletedAt ? (
           <AdminTooltipButton label="Restaurar reporte" disabled={isOpLoading}>
             <button
               onClick={() => restoreReport(report.id)}
               disabled={isOpLoading}
-              className="h-8 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 text-[10.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-[10.5px] font-bold text-emerald-700 transition-all hover:bg-emerald-100"
               aria-label="Restaurar reporte"
             >
-              {isOpLoading ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <RotateCcw size={12} />
-              )}
+              {isOpLoading ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
               <span>Restaurar</span>
             </button>
           </AdminTooltipButton>
@@ -149,48 +129,36 @@ export function AdminReportRow({
                 <button
                   onClick={() => updateReportStatus(report.id, 'RESOLVED')}
                   disabled={isOpLoading}
-                  className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition-all cursor-pointer"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 transition-all hover:bg-emerald-100"
                   aria-label="Resolver incidente"
                 >
-                  {isOpLoading ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Check size={14} />
-                  )}
+                  {isOpLoading ? <Loader2 size={13} className="animate-spin" /> : <Check size={14} />}
                 </button>
               </AdminTooltipButton>
             )}
 
-            {report.status === 'ACTIVE' && (
+            {report.status !== 'DUPLICATE' && (
               <AdminTooltipButton label="Marcar como duplicado" disabled={isOpLoading}>
                 <button
                   onClick={() => updateReportStatus(report.id, 'DUPLICATE')}
                   disabled={isOpLoading}
-                  className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-indigo-400 flex items-center justify-center transition-all cursor-pointer"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-[#075985] transition-all hover:bg-sky-100"
                   aria-label="Marcar como duplicado"
                 >
-                  {isOpLoading ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Copy size={13} />
-                  )}
+                  {isOpLoading ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
                 </button>
               </AdminTooltipButton>
             )}
 
-            {report.status !== 'ACTIVE' && (
+            {report.status !== 'PENDING' && (
               <AdminTooltipButton label="Reabrir reporte" disabled={isOpLoading}>
                 <button
-                  onClick={() => updateReportStatus(report.id, 'ACTIVE')}
+                  onClick={() => updateReportStatus(report.id, 'PENDING')}
                   disabled={isOpLoading}
-                  className="btn h-8 px-2 bg-surface-2 border border-border hover:bg-surface-3 text-foreground text-[10.5px] font-bold flex items-center justify-center transition-all cursor-pointer"
+                  className="flex h-8 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-slate-50 px-2 text-[10.5px] font-bold text-slate-700 transition-all hover:bg-slate-100"
                   aria-label="Reabrir reporte"
                 >
-                  {isOpLoading ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <span>Reabrir</span>
-                  )}
+                  {isOpLoading ? <Loader2 size={12} className="animate-spin" /> : <span>Reabrir</span>}
                 </button>
               </AdminTooltipButton>
             )}
@@ -199,19 +167,29 @@ export function AdminReportRow({
               <button
                 onClick={() => archiveReport(report.id)}
                 disabled={isOpLoading}
-                className="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 hover:bg-slate-500/20 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-slate-50 text-slate-600 transition-all hover:bg-slate-100"
                 aria-label="Archivar reporte"
               >
-                {isOpLoading ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Archive size={13} />
-                )}
+                {isOpLoading ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
               </button>
             </AdminTooltipButton>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function StatusChip({ tone, children }: { tone: 'amber' | 'emerald' | 'slate'; children: React.ReactNode }) {
+  const className = {
+    amber: 'border-amber-200 bg-amber-50 text-amber-700',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    slate: 'border-slate-300 bg-slate-100 text-slate-600',
+  }[tone];
+
+  return (
+    <span className={`rounded-sm border px-2 py-0.5 text-[9px] font-bold ${className}`}>
+      {children}
+    </span>
   );
 }

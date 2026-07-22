@@ -1,39 +1,39 @@
 import { z } from 'zod';
 import { CATEGORY_IDS } from '@/lib/constants/categories';
-import { AGUILARES_BOUNDS } from '@/lib/constants/map';
 
 /**
- * Schema de validación para la creación de un nuevo reporte.
- * Protege la integridad del contenido y restringe geográficamente los reportes a Aguilares.
+ * Schema de validacion para la creacion de un nuevo reporte.
+ * Protege la integridad del contenido recibido por la API.
  */
 export const CreateReportSchema = z.object({
   lat: z
     .number({ message: 'La latitud es obligatoria.' })
-    .min(AGUILARES_BOUNDS.bbox.south, 'La ubicación está fuera de los límites sur de Aguilares.')
-    .max(AGUILARES_BOUNDS.bbox.north, 'La ubicación está fuera de los límites norte de Aguilares.'),
+    .min(-90, 'La latitud no es valida.')
+    .max(90, 'La latitud no es valida.'),
   lng: z
     .number({ message: 'La longitud es obligatoria.' })
-    .min(AGUILARES_BOUNDS.bbox.west, 'La ubicación está fuera de los límites oeste de Aguilares.')
-    .max(AGUILARES_BOUNDS.bbox.east, 'La ubicación está fuera de los límites este de Aguilares.'),
+    .min(-180, 'La longitud no es valida.')
+    .max(180, 'La longitud no es valida.'),
   category: z.enum(CATEGORY_IDS, {
-    message: 'Categoría de reporte inválida.',
+    message: 'Categoria de reporte invalida.',
   }),
   title: z
-    .string({ message: 'El título es obligatorio.' })
-    .min(5, 'El título debe tener al menos 5 caracteres.')
-    .max(80, 'El título no puede superar los 80 caracteres.')
+    .string({ message: 'El titulo es obligatorio.' })
+    .min(5, 'El titulo debe tener al menos 5 caracteres.')
+    .max(80, 'El titulo no puede superar los 80 caracteres.')
     .trim(),
   description: z
     .string()
-    .max(500, 'La descripción no puede superar los 500 caracteres.')
+    .max(500, 'La descripcion no puede superar los 500 caracteres.')
     .trim()
     .nullable()
     .optional()
     .default(null),
   images: z
-    .array(z.string().url('URL de foto inválida.'))
+    .array(z.string().url('URL de foto invalida.'))
     .optional()
     .default([]),
+  priority: z.enum(['high', 'medium', 'low']).optional(),
   fingerprintVisitorId: z
     .string({ message: 'El identificador del navegador es obligatorio.' })
     .min(10, 'El identificador del navegador es demasiado corto.')
@@ -45,8 +45,8 @@ export const CreateReportSchema = z.object({
 export type CreateReportInput = z.infer<typeof CreateReportSchema>;
 
 /**
- * Schema de validación para filtrar los reportes en las peticiones GET.
- * Soporta query params individuales (?category=BACHE) o múltiples (?category=BACHE&category=BASURA).
+ * Schema de validacion para filtrar los reportes en las peticiones GET.
+ * Soporta query params individuales (?category=BACHE) o multiples (?category=BACHE&category=ALUMBRADO).
  */
 export const GetReportsQuerySchema = z.object({
   category: z
@@ -66,4 +66,3 @@ export const GetReportsQuerySchema = z.object({
 });
 
 export type GetReportsQueryInput = z.infer<typeof GetReportsQuerySchema>;
-

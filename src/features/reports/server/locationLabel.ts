@@ -47,7 +47,7 @@ function pickBestGeocodeResult(results: GoogleGeocodeResult[]) {
 }
 
 export async function resolveLocationLabel(lat: number, lng: number): Promise<string | null> {
-  const apiKey = env.GOOGLE_MAPS_API_KEY;
+  const apiKey = env.GOOGLE_MAPS_SERVER_API_KEY;
   if (!apiKey) return null;
 
   const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');

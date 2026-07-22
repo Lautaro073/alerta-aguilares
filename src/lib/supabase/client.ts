@@ -10,8 +10,22 @@ export const supabaseBrowser = createClient(
   supabaseAnonKey || 'local-anon-placeholder',
   {
     auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
+);
+
+export const createRecoveryClient = () => createClient(
+  supabaseUrl || 'http://localhost:54321',
+  supabaseAnonKey || 'local-anon-placeholder',
+  {
+    auth: {
       persistSession: false,
       autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: 'aguilares-password-recovery',
     },
   }
 );

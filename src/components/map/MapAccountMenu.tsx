@@ -1,17 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { LogOut, Shield, User, Zap } from 'lucide-react';
+import { toast } from 'sonner';
+import { CircleHelp, LogOut, Shield, User, Zap } from 'lucide-react';
 import AuthModal from '@/components/auth/AuthModal';
 import { useAuth } from '@/hooks/useAuth';
+import { startSystemTour, startSystemTourOnce } from '@/lib/onboarding/systemTour';
 
 export default function MapAccountMenu() {
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin, loading, signOut } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isElevating, setIsElevating] = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+    startSystemTourOnce('map', user ? 'authenticated' : 'guest');
+  }, [loading, user]);
 
   const handleElevate = async () => {
     if (!user || isElevating) return;
@@ -25,13 +32,14 @@ export default function MapAccountMenu() {
       if (response.ok) {
         await user.getIdToken(true);
         setShowUserMenu(false);
+        toast.success('Permisos actualizados.');
       } else {
         const result = await response.json().catch(() => ({})) as { error?: string };
-        alert(result.error || 'Error al elevar permisos.');
+        toast.error(result.error || 'Error al elevar permisos.');
       }
     } catch (err) {
       console.error('[DEV] Error al elevar a admin:', err);
-      alert('Error inesperado al elevar permisos.');
+      toast.error('Error inesperado al elevar permisos.');
     } finally {
       setIsElevating(false);
     }
@@ -41,6 +49,7 @@ export default function MapAccountMenu() {
     <>
       {!user ? (
         <button
+          data-tour="map-account"
           onClick={() => setIsAuthModalOpen(true)}
           className="flex items-center justify-center gap-1.5 h-10 px-3 md:px-4 rounded-pill font-outfit text-xs font-bold bg-accent border border-accent hover:bg-accent/95 hover:shadow-glow hover:shadow-accent/30 text-white transition-all duration-300 cursor-pointer shadow shadow-accent/20 active:scale-95 shrink-0"
         >
@@ -50,6 +59,7 @@ export default function MapAccountMenu() {
       ) : (
         <div className="relative shrink-0">
           <button
+            data-tour="map-account"
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="flex items-center justify-center w-10 h-10 rounded-full border border-border hover:border-border-strong bg-surface-2 hover:bg-surface-3 transition-all duration-200 cursor-pointer overflow-hidden relative active:scale-95"
             title={profile?.displayName || user.displayName || 'Vecino'}
@@ -93,7 +103,7 @@ export default function MapAccountMenu() {
                     className="flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-yellow-400 hover:bg-surface-3 transition-colors select-none"
                   >
                     <Shield size={13} className="shrink-0 text-yellow-400" />
-                    <span>Panel de Moderacion</span>
+                    <span>Panel de Administración</span>
                   </Link>
                 )}
 
@@ -112,6 +122,17 @@ export default function MapAccountMenu() {
                     <span>{isElevating ? 'Elevando...' : '[Dev] Hacerme Admin'}</span>
                   </button>
                 )}
+
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    startSystemTour('map', 'authenticated');
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-foreground hover:bg-surface-3 transition-colors select-none cursor-pointer border-none bg-transparent"
+                >
+                  <CircleHelp size={13} className="shrink-0" />
+                  <span>Recorrido del sistema</span>
+                </button>
 
                 <button
                   onClick={() => {

@@ -8,7 +8,8 @@ import IncidentPhotos from './IncidentPhotos';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
 import AuthModal from '@/components/auth/AuthModal';
-import { X, Clock, MapPin, Users, Check, Loader2, Heart, BadgeCheck, UserCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { X, Clock, MapPin, Users, Check, Loader2, Heart, BadgeCheck, UserCircle, CircleX } from 'lucide-react';
 
 interface ReportDetailDrawerProps {
   report: Report | null;
@@ -24,6 +25,7 @@ function formatReportDate(isoString: string): string {
     return date.toLocaleDateString('es-AR', {
       day: 'numeric',
       month: 'short',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
@@ -41,6 +43,11 @@ function formatReportDate(isoString: string): string {
 export default function ReportDetailDrawer({ report, onClose }: ReportDetailDrawerProps) {
   const { user } = useAuth();
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isAnsweringResolution, setIsAnsweringResolution] = useState(false);
+  const [ownerFeedback, setOwnerFeedback] = useState<{
+    reportId: string;
+    resolved: boolean;
+  } | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [localConfirmation, setLocalConfirmation] = useState<{
     reportId: string;
@@ -56,6 +63,10 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
       : report;
   const hasConfirmedLocally =
     localConfirmation?.reportId === report.id ? localConfirmation.confirmed : false;
+  const isOwner = Boolean(user && currentReport.userId === user.uid);
+  const isOpen = ['PENDING', 'VERIFYING', 'IN_PROGRESS'].includes(currentReport.status);
+  const currentOwnerFeedback =
+    ownerFeedback?.reportId === currentReport.id ? ownerFeedback.resolved : null;
 
   // Filtrar solo las fotos válidas (excluyendo vectores/SVGs u otros formatos no fotográficos)
   const validPhotos = (currentReport.images || []).filter((url) => {
@@ -79,6 +90,8 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
   const categoryName = categoryConfig?.name || 'Reporte ciudadano';
 
   const handleConfirmToggle = async () => {
+    if (isOwner) return;
+
     if (!user) {
       setIsAuthModalOpen(true);
       return;
@@ -115,6 +128,33 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
       console.error('Error al confirmar reporte:', error);
     } finally {
       setIsConfirming(false);
+    }
+  };
+
+  const handleOwnerResolution = async (resolved: boolean) => {
+    if (!user || isAnsweringResolution) return;
+
+    try {
+      setIsAnsweringResolution(true);
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/reports/${currentReport.id}/resolution`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ resolved }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'No se pudo actualizar la alerta.');
+
+      setOwnerFeedback({ reportId: currentReport.id, resolved });
+      toast.success(resolved ? 'Marcaste la alerta como solucionada.' : 'La alerta continuara activa.');
+      if (resolved) onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo actualizar la alerta.');
+    } finally {
+      setIsAnsweringResolution(false);
     }
   };
 
@@ -192,6 +232,40 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
         <div className="flex-1 overflow-y-auto pr-1 no-scrollbar flex flex-col gap-4">
           
           {/* Apoyo Vecinal / Confirmación (Fase 2) */}
+          {isOwner ? (isOpen ? (
+            <div className="bg-surface-1/40 border border-border/30 rounded-lg p-3 flex flex-col gap-3 select-none">
+              <div>
+                <span className="text-[10px] font-bold text-muted uppercase tracking-wider font-jakarta">Seguimiento de tu alerta</span>
+                <p className="font-outfit font-extrabold text-[13px] text-foreground mt-0.5">
+                  ¿El problema ya fue solucionado?
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleOwnerResolution(false)}
+                  disabled={isAnsweringResolution}
+                  className="h-9 rounded-md border border-border bg-surface-2 text-xs font-bold text-foreground hover:bg-surface-3 transition-colors cursor-pointer disabled:cursor-wait"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <CircleX size={14} />
+                    {currentOwnerFeedback === false ? 'Sigue activo' : 'No, sigue igual'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleOwnerResolution(true)}
+                  disabled={isAnsweringResolution}
+                  className="h-9 rounded-md border border-emerald-500/40 bg-emerald-500/15 text-xs font-bold text-emerald-400 hover:bg-emerald-500/25 transition-colors cursor-pointer disabled:cursor-wait"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    {isAnsweringResolution ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    Si, solucionado
+                  </span>
+                </button>
+              </div>
+            </div>
+          ) : null) : (
           <div className="bg-surface-1/40 border border-border/30 rounded-lg p-3 flex items-center justify-between gap-3 select-none">
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] font-bold text-muted uppercase tracking-wider font-jakarta">Validación Vecinal</span>
@@ -231,6 +305,7 @@ export default function ReportDetailDrawer({ report, onClose }: ReportDetailDraw
               )}
             </button>
           </div>
+          )}
 
           {/* Descripción */}
           <div className="flex flex-col gap-1.5">

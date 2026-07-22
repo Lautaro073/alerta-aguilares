@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { User } from 'firebase/auth';
+import type { AuthUser } from '@/hooks/useAuth';
 import { CategoryId } from '@/lib/constants/categories';
 import { getAppCheckToken } from '@/lib/firebase/appCheckClient';
 import { getVisitorId } from '@/lib/utils/fingerprint';
+import type { ReportPriority } from '@/types/report';
 
 interface CreateReportDraft {
   lat: number;
@@ -13,9 +14,10 @@ interface CreateReportDraft {
   title: string;
   description: string;
   images: string[];
+  priority?: ReportPriority;
 }
 
-export function useCreateReport(user: User | null) {
+export function useCreateReport(user: AuthUser | null) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -24,16 +26,13 @@ export function useCreateReport(user: User | null) {
     setIsSubmitting(true);
 
     try {
-      const visitorId = await getVisitorId();
-      let authToken: string | null = null;
-
-      if (user) {
-        try {
-          authToken = await user.getIdToken();
-        } catch {
-          console.warn('[useCreateReport] No se pudo obtener el token del usuario.');
-        }
+      if (!user) {
+        throw new Error('Debes iniciar sesion para crear una alerta.');
       }
+
+      const visitorId = await getVisitorId();
+      const authToken = await user.getIdToken();
+      if (!authToken) throw new Error('Tu sesion vencio. Inicia sesion nuevamente.');
 
       const appCheckToken = await getAppCheckToken();
       const response = await fetch('/api/reports', {
@@ -41,7 +40,7 @@ export function useCreateReport(user: User | null) {
         headers: {
           'Content-Type': 'application/json',
           ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           lat: draft.lat,
@@ -50,6 +49,7 @@ export function useCreateReport(user: User | null) {
           title: draft.title.trim(),
           description: draft.description.trim() || null,
           images: draft.images,
+          priority: draft.priority,
           fingerprintVisitorId: visitorId,
         }),
       });

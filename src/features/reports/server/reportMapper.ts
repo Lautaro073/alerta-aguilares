@@ -1,6 +1,6 @@
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
 import { CategoryId } from '@/lib/constants/categories';
-import { Report } from '@/types/report';
+import { Report, ReportAssignedArea, ReportPriority, ReportStatus } from '@/types/report';
 
 export interface HeatmapPoint {
   lat: number;
@@ -20,7 +20,10 @@ export interface SupabaseReportRow {
   title: string;
   description: string | null;
   images: string[] | null;
-  status: 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
+  status: ReportStatus;
+  priority: ReportPriority | null;
+  assigned_area: ReportAssignedArea | null;
+  duplicate_of_report_id: string | null;
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
@@ -43,6 +46,9 @@ export function mapSupabaseReportToReport(row: SupabaseReportRow): Report {
     description: row.description,
     images: row.images || [],
     status: row.status,
+    priority: row.priority,
+    assignedArea: row.assigned_area,
+    duplicateOfReportId: row.duplicate_of_report_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     resolvedAt: row.resolved_at,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import CategoryPicker from './CategoryPicker';
@@ -11,6 +11,8 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import { useAuth } from '@/hooks/useAuth';
 import { X, Check, AlertOctagon, Bell, ChevronLeft, ChevronRight, Lock, BadgeCheck } from 'lucide-react';
 import { useCreateReport } from '@/features/reports/client/useCreateReport';
+import type { ReportPriority } from '@/types/report';
+import { startFeatureTourOnce } from '@/lib/onboarding/systemTour';
 
 // Importación dinámica de ReportMiniMap para prevenir fallos en SSR de Leaflet
 const ReportMiniMap = dynamic(() => import('./ReportMiniMap'), {
@@ -28,6 +30,10 @@ interface ReportDrawerProps {
   onClose: () => void;
   mapCenter: { lat: number; lng: number } | null;
   onReportCreated?: () => void;
+  initialCategory?: CategoryId;
+  initialTitle?: string;
+  initialDescription?: string;
+  initialStep?: 1 | 2 | 3;
 }
 
 export default function ReportDrawer({
@@ -35,15 +41,20 @@ export default function ReportDrawer({
   onClose,
   mapCenter,
   onReportCreated,
+  initialCategory,
+  initialTitle = '',
+  initialDescription = '',
+  initialStep,
 }: ReportDrawerProps) {
   // Estados del formulario y flujo de pasos
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep ?? (initialCategory ? 2 : 1));
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | null>(initialCategory ?? null);
   const [lat, setLat] = useState<number>(mapCenter?.lat ?? AGUILARES_BOUNDS.center.lat);
   const [lng, setLng] = useState<number>(mapCenter?.lng ?? AGUILARES_BOUNDS.center.lng);
-  const [title, setTitle] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
+  const [title, setTitle] = useState<string>(initialTitle);
+  const [description, setDescription] = useState<string>(initialDescription);
   const [images, setImages] = useState<string[]>([]);
+  const [priority, setPriority] = useState<ReportPriority | ''>('');
 
   // Estados de carga, éxito y error
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
@@ -52,6 +63,13 @@ export default function ReportDrawer({
   // Autenticación del vecino (para asociar autoría al reporte)
   const { user, profile } = useAuth();
   const { createReport, isSubmitting, apiError, clearApiError } = useCreateReport(user);
+  const isFixedTrafficLightReport = initialCategory === 'SEMAFORO' && initialStep === 3;
+
+  useEffect(() => {
+    if (!isOpen || isSuccess) return;
+    const feature = step === 1 ? 'report-category' : step === 2 ? 'report-location' : 'report-details';
+    startFeatureTourOnce(feature, profile?.role);
+  }, [isOpen, isSuccess, profile?.role, step]);
 
   // Si no está abierto, no renderizar nada
   if (!isOpen) return null;
@@ -115,6 +133,7 @@ export default function ReportDrawer({
         title,
         description,
         images,
+        ...(priority ? { priority } : {}),
       });
 
       // Éxito
@@ -146,7 +165,7 @@ export default function ReportDrawer({
         <div className="w-12 h-1 bg-border-strong rounded-full mx-auto mb-4 shrink-0 md:hidden" />
 
         {/* Encabezado Principal */}
-        <div className="flex items-center justify-between gap-3 mb-4 shrink-0">
+        <div data-tour="report-header" className="flex items-center justify-between gap-3 mb-4 shrink-0">
           <div className="flex flex-col">
             <h2 className="font-outfit font-extrabold text-lg text-foreground tracking-tight leading-none select-none">
               Crear Alerta Ciudadana
@@ -221,6 +240,7 @@ export default function ReportDrawer({
             <div className="flex-1 overflow-y-auto pr-1 no-scrollbar flex flex-col gap-4 pb-2">
               {/* Paso 1: Selección de Categoría */}
               {step === 1 && (
+                <div data-tour="report-category">
                 <CategoryPicker
                   selectedCategory={selectedCategory}
                   onSelectCategory={(catId) => {
@@ -231,11 +251,12 @@ export default function ReportDrawer({
                     }, 200);
                   }}
                 />
+                </div>
               )}
 
               {/* Paso 2: MiniMapa Ubicación */}
               {step === 2 && (
-                <div className="animate-fade-in">
+                <div data-tour="report-location" className="animate-fade-in">
                   <ReportMiniMap
                     lat={lat}
                     lng={lng}
@@ -246,7 +267,7 @@ export default function ReportDrawer({
 
               {/* Paso 3: Campos de Texto (Formulario Completo) */}
               {step === 3 && (
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4 animate-fade-in">
+                <form data-tour="report-details" onSubmit={handleSubmit} className="flex flex-col gap-4 animate-fade-in">
                   {/* Resumen visual de los pasos previos */}
                   <div className="bg-surface-1/40 border border-border/30 rounded-lg p-3 flex flex-col gap-2 shrink-0 select-none">
                     <div className="flex justify-between items-center text-xs">
@@ -267,9 +288,11 @@ export default function ReportDrawer({
                     title={title}
                     description={description}
                     images={images}
+                    priority={priority}
                     onChangeTitle={setTitle}
                     onChangeDescription={setDescription}
                     onChangeImages={setImages}
+                    onChangePriority={setPriority}
                     errors={errors}
                   />
                 </form>
@@ -314,17 +337,17 @@ export default function ReportDrawer({
             </div>
 
             {/* BARRA DE CONTROLES INFERIORES (Fijos al fondo, fuera del scroll) */}
-            <div className="flex items-center gap-3 border-t border-border/60 pt-3 mt-auto shrink-0 select-none bg-surface-2">
+            <div data-tour="report-actions" className="flex items-center gap-3 border-t border-border/60 pt-3 mt-auto shrink-0 select-none bg-surface-2">
               
-              {/* Botón Volver */}
+              {/* Botón Volver / Cerrar */}
               {step > 1 && !isSubmitting && (
                 <button
                   type="button"
-                  onClick={handlePrevStep}
+                  onClick={isFixedTrafficLightReport ? onClose : handlePrevStep}
                   className="btn btn-ghost flex-1 h-11 text-xs font-bold flex items-center justify-center gap-1"
                 >
-                  <ChevronLeft size={14} />
-                  <span>Volver</span>
+                  {isFixedTrafficLightReport ? <X size={14} /> : <ChevronLeft size={14} />}
+                  <span>{isFixedTrafficLightReport ? 'Cerrar' : 'Volver'}</span>
                 </button>
               )}
 

@@ -10,7 +10,9 @@
 !.yarn/releases
 !.yarn/versions
 .agents
-
+.stitch
+*.md
+*opencode*
 # testing
 /coverage
 

@@ -37,7 +37,7 @@ export function AdminReportFilters({
   return (
     <div className="flex flex-wrap items-center gap-2 md:self-end">
       <div className="relative flex items-center min-w-[200px] flex-1 sm:flex-initial">
-        <Search size={14} className="absolute left-3 text-muted" />
+        <Search size={14} className="absolute left-3 text-slate-400" />
         <input
           type="text"
           placeholder="Buscar reporte..."
@@ -46,19 +46,19 @@ export function AdminReportFilters({
             setSearchQuery(event.target.value);
             resetPagination();
           }}
-          className="w-full bg-surface-1 border border-border focus:border-accent rounded-lg py-1.5 pl-9 pr-3 text-xs outline-none text-foreground transition-all placeholder:text-muted/40"
+          className="w-full rounded-md border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-xs text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-[#075985]"
         />
       </div>
 
       <div className="relative flex items-center">
-        <Clock size={12} className="absolute left-2.5 text-muted pointer-events-none" />
+        <Clock size={12} className="absolute left-2.5 text-slate-400 pointer-events-none" />
         <select
           value={timeframeFilter}
           onChange={(event: ChangeEvent<HTMLSelectElement>) => {
             setTimeframeFilter(event.target.value as AdminTimeframeFilter);
             resetPagination();
           }}
-          className="bg-surface-1 border border-border rounded-lg py-1.5 pl-8 pr-2 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
+          className="cursor-pointer rounded-md border border-slate-300 bg-white py-1.5 pl-8 pr-2 text-xs font-bold text-slate-700 outline-none transition-all focus:border-[#075985]"
         >
           <option value="all">Histórico</option>
           <option value="7d">Últimos 7 días</option>
@@ -67,18 +67,21 @@ export function AdminReportFilters({
       </div>
 
       <div className="relative flex items-center">
-        <Filter size={12} className="absolute left-2.5 text-muted pointer-events-none" />
+        <Filter size={12} className="absolute left-2.5 text-slate-400 pointer-events-none" />
         <select
           value={statusFilter}
           onChange={(event: ChangeEvent<HTMLSelectElement>) => {
             setStatusFilter(event.target.value as AdminStatusFilter);
             resetPagination();
           }}
-          className="bg-surface-1 border border-border rounded-lg py-1.5 pl-8 pr-2 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
+          className="cursor-pointer rounded-md border border-slate-300 bg-white py-1.5 pl-8 pr-2 text-xs font-bold text-slate-700 outline-none transition-all focus:border-[#075985]"
         >
           <option value="ALL">Todos los Estados</option>
-          <option value="ACTIVE">Activos</option>
+          <option value="PENDING">Pendientes</option>
+          <option value="VERIFYING">En verificacion</option>
+          <option value="IN_PROGRESS">En proceso</option>
           <option value="RESOLVED">Resueltos</option>
+          <option value="DISMISSED">Desestimados</option>
           <option value="DUPLICATE">Duplicados</option>
           <option value="DELETED">Archivados{archivedCount > 0 ? ` (${archivedCount})` : ''}</option>
         </select>
@@ -91,7 +94,7 @@ export function AdminReportFilters({
             setCategoryFilter(event.target.value);
             resetPagination();
           }}
-          className="bg-surface-1 border border-border rounded-lg py-1.5 px-3 text-xs text-foreground outline-none transition-all cursor-pointer font-bold"
+          className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-all focus:border-[#075985]"
         >
           <option value="ALL">Todas las Categorías</option>
           {Object.values(CATEGORIES).map((cat) => (
@@ -106,7 +109,7 @@ export function AdminReportFilters({
         <button
           type="button"
           onClick={clearFilters}
-          className="h-8 px-3 rounded-lg bg-surface-2 border border-border hover:bg-surface-3 text-[11px] text-muted hover:text-foreground font-bold transition-colors cursor-pointer"
+          className="h-8 cursor-pointer rounded-md border border-slate-300 bg-slate-50 px-3 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
         >
           Limpiar
         </button>

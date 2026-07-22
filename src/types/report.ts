@@ -1,5 +1,9 @@
 import { CategoryId } from '@/lib/constants/categories';
 
+export type ReportStatus = 'PENDING' | 'VERIFYING' | 'IN_PROGRESS' | 'RESOLVED' | 'DISMISSED' | 'DUPLICATE';
+export type ReportAssignedArea = 'traffic' | 'public_works' | 'lighting' | 'environment';
+export type ReportPriority = 'high' | 'medium' | 'low';
+
 /**
  * Formato publico serializado a JSON que recibe el cliente.
  */
@@ -15,7 +19,10 @@ export interface Report {
   description: string | null;
   images?: string[];
 
-  status: 'ACTIVE' | 'RESOLVED' | 'DUPLICATE';
+  status: ReportStatus;
+  priority?: ReportPriority | null;
+  assignedArea?: ReportAssignedArea | null;
+  duplicateOfReportId?: string | null;
   deletedAt?: string | null;
 
   createdAt: string;

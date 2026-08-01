@@ -112,8 +112,8 @@ export default function TerminosPage() {
 
           <Section id="responsable" numero={1} titulo="Quién opera el servicio">
             <p>
-              Alertas Aguilares es una iniciativa personal de <strong>Lautaro Jiménez</strong>,
-              DNI 44.376.073, con domicilio en Santa Cruz s/n, Aguilares, provincia de
+              Alertas Aguilares es una iniciativa personal de <strong>Lautaro Jimenez</strong>,
+              ciudadano de Aguilares, provincia de
               Tucumán, República Argentina. Contacto:{' '}
               <a href="mailto:lautarojimenez02@gmail.com">lautarojimenez02@gmail.com</a>.
             </p>

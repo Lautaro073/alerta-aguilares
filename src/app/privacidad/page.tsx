@@ -1,150 +1,499 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, EyeOff, Lock, Scale, MapPin } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, EyeOff } from 'lucide-react';
+import { CONTACTO_LEGAL, OG_CARD, SITE_URL } from '@/lib/legal';
 
-/**
- * Página de Política de Privacidad y Uso de Datos de CiudadAlerta.
- * Cumple con los requisitos del Checklist de Lanzamiento del MVP Core.
- * Presenta un diseño premium, totalmente responsive y de altísima fidelidad visual.
- */
+const DESCRIPCION_META =
+  'Qué datos personales trata Alertas Aguilares, con qué finalidad, con quién se comparten y cómo ejercer tus derechos conforme a la Ley 25.326.';
+
+export const metadata: Metadata = {
+  title: 'Política de Privacidad - Alertas Aguilares',
+  description: DESCRIPCION_META,
+  robots: { index: true, follow: true },
+  alternates: { canonical: '/privacidad' },
+  // `openGraph` reemplaza al del layout raíz (no se fusiona), así que se
+  // repiten siteName/locale/type para no perderlos.
+  openGraph: {
+    title: 'Política de Privacidad - Alertas Aguilares',
+    description: DESCRIPCION_META,
+    type: 'article',
+    locale: 'es_AR',
+    siteName: 'Alertas Aguilares',
+    url: '/privacidad',
+    images: [OG_CARD],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Política de Privacidad - Alertas Aguilares',
+    description: DESCRIPCION_META,
+    images: [OG_CARD.url],
+  },
+};
+
+const ULTIMA_ACTUALIZACION = '31 de julio de 2026';
+const CONTACTO = CONTACTO_LEGAL;
+
+function Section({
+  id,
+  numero,
+  titulo,
+  children,
+}: {
+  id: string;
+  numero: number;
+  titulo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-8 flex flex-col gap-3">
+      <h2 className="font-outfit font-bold text-base text-white tracking-wide flex gap-2.5">
+        <span className="text-accent tabular-nums shrink-0">{numero}.</span>
+        <span>{titulo}</span>
+      </h2>
+      <div className="flex flex-col gap-3 font-jakarta text-xs text-muted leading-relaxed pl-[1.6rem] [&_strong]:text-foreground/90 [&_strong]:font-semibold [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:list-disc [&_ul]:pl-4 [&_a]:text-accent [&_a]:font-semibold [&_a]:underline [&_a]:underline-offset-2">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** Leyenda de reproducción obligatoria: no editar el texto. */
+function Leyenda({ children }: { children: React.ReactNode }) {
+  return (
+    <blockquote className="border-l-2 border-accent/50 bg-surface-1/40 rounded-r-lg px-4 py-3 font-jakarta text-xs text-foreground/80 leading-relaxed italic">
+      {children}
+    </blockquote>
+  );
+}
+
 export default function PrivacyPage() {
   return (
     <main className="min-h-dvh bg-[#080d1a] text-foreground font-jakarta flex flex-col items-center px-4 py-8 md:py-16 selection:bg-accent/30 selection:text-white">
+      <div className="w-full max-w-3xl flex flex-col gap-8 md:gap-10 animate-fade-in">
 
-      {/* Contenedor principal con limitador de ancho */}
-      <div className="w-full max-w-3xl flex flex-col gap-8 md:gap-12 animate-fade-in">
-
-        {/* Encabezado con Botón de Regreso y Branding */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6 select-none">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div className="flex flex-col">
             <h1 className="font-outfit font-extrabold text-2xl tracking-tight text-white flex items-center gap-2">
-              <ShieldCheck className="text-accent shrink-0" size={26} />
-              <span>Alertas Aguilares</span>
+              <ShieldCheck className="text-accent shrink-0" size={24} />
+              <span>Política de Privacidad</span>
             </h1>
             <span className="font-jakarta text-[10px] text-muted font-bold tracking-wider uppercase mt-1">
-              Participación Ciudadana
+              Alertas Aguilares · Última actualización: {ULTIMA_ACTUALIZACION}
             </span>
           </div>
 
           <Link
-            id="back-to-map-btn"
             href="/"
-            className="btn btn-ghost inline-flex items-center gap-2 self-start sm:self-auto text-xs py-2 px-4 rounded-lg transition-all"
+            className="btn btn-ghost inline-flex items-center gap-2 self-start sm:self-auto text-xs py-2 px-4 rounded-lg"
           >
             <ArrowLeft size={14} />
             <span>Volver al mapa</span>
           </Link>
         </header>
 
-        {/* Hero Section */}
-        <section className="flex flex-col gap-4 text-center sm:text-left select-none">
-          <h2 className="font-outfit font-extrabold text-3xl sm:text-4xl tracking-tight text-white">
-            Tu privacidad es <span className="gradient-text">nuestra prioridad</span>
-          </h2>
-          <p className="font-jakarta text-sm text-muted leading-relaxed max-w-2xl">
-            Queremos que te sientas completamente seguro al reportar incidentes en tu barrio.
-            Acá te explicamos de manera simple qué datos guardamos, para qué se usan y cómo
-            protegemos tu identidad al 100%.
-          </p>
-        </section>
+        {/* Resumen honesto arriba de todo: es lo que más gente va a leer */}
+        <aside className="glass-strong p-5 md:p-6 flex flex-col sm:flex-row gap-4 items-start">
+          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 shrink-0">
+            <EyeOff size={20} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <h2 className="font-outfit font-bold text-sm text-white tracking-wide">
+              En pocas palabras
+            </h2>
+            <p className="font-jakarta text-xs text-muted leading-relaxed">
+              <strong className="text-foreground/90 font-semibold">Las alertas no son
+              anónimas.</strong> Para publicar necesitás una cuenta, y tu nombre visible
+              aparece públicamente en cada alerta que publicás, junto con la ubicación
+              exacta y las fotos que subas. Cualquier persona puede verlo, sin registrarse.
+            </p>
+            <p className="font-jakarta text-xs text-muted leading-relaxed">
+              No vendemos tus datos, no hacemos publicidad y no usamos analítica de terceros.
+              Sí guardamos información técnica para frenar el abuso, incluida una huella de
+              tu navegador que nos permite bloquear a quien haga mal uso. Está explicado sin
+              vueltas en el punto 5.
+            </p>
+          </div>
+        </aside>
 
-        {/* Secciones de Política de Privacidad */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
 
-          {/* Tarjeta 1: Totalmente Anónimo */}
-          <article className="glass-strong p-6 md:p-8 flex flex-col sm:flex-row gap-5 items-start transition-all hover:border-border-strong hover:-translate-y-0.5 duration-300">
-            <div className="p-3 rounded-xl bg-accent/10 border border-accent/25 text-accent shrink-0">
-              <EyeOff size={22} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <h3 className="font-outfit font-bold text-base text-white tracking-wide">
-                1. 100% Anónimo y sin registros molestos
-              </h3>
-              <p className="font-jakarta text-xs text-muted leading-relaxed">
-                No te pedimos nombre, correo electrónico, número de teléfono ni contraseñas.
-                Cualquier vecino puede acceder a la plataforma y reportar un problema de forma
-                directa e inmediata sin tener que crear una cuenta de usuario.
-              </p>
-            </div>
-          </article>
+          <Section id="responsable" numero={1} titulo="Quién es responsable de tus datos">
+            <p>
+              El responsable del tratamiento es <strong>Lautaro Jiménez</strong>, DNI
+              44.376.073, con domicilio en Santa Cruz s/n, Aguilares, provincia de Tucumán,
+              República Argentina. Correo de contacto para cualquier tema de privacidad:{' '}
+              <a href={`mailto:${CONTACTO}`}>{CONTACTO}</a>.
+            </p>
+            <p>
+              Esta política se aplica al sitio{' '}
+              <a href={SITE_URL} target="_blank" rel="noreferrer">
+                {SITE_URL.replace('https://', '')}
+              </a>{' '}
+              y a la aplicación instalable que se ofrece desde ahí.
+            </p>
+            <p>
+              Alertas Aguilares es un proyecto personal e independiente. No pertenece a la
+              Municipalidad de Aguilares ni a ningún organismo público.
+            </p>
+            <p>
+              Esta política se rige por la <strong>Ley 25.326 de Protección de los Datos
+              Personales</strong> y su Decreto reglamentario 1558/2001.
+            </p>
+          </Section>
 
-          {/* Tarjeta 2: Qué datos son públicos */}
-          <article className="glass-strong p-6 md:p-8 flex flex-col sm:flex-row gap-5 items-start transition-all hover:border-border-strong hover:-translate-y-0.5 duration-300">
-            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 shrink-0">
-              <MapPin size={22} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <h3 className="font-outfit font-bold text-base text-white tracking-wide">
-                2. Qué datos se publican en el mapa interactivo
-              </h3>
-              <p className="font-jakarta text-xs text-muted leading-relaxed">
-                Cuando publicás una alerta vecinal, la información que se vuelve pública y visible para toda la comunidad es únicamente:
-              </p>
-              <ul className="list-disc list-inside font-jakarta text-xs text-muted leading-relaxed pl-2 flex flex-col gap-1 mt-1">
-                <li>La ubicación geográfica exacta en el mapa (latitud y longitud).</li>
-                <li>La categoría del incidente de tránsito o problema urbano (Accidente, Bache, Semáforo, Señalización, Vehículo abandonado, Alumbrado).</li>
-                <li>El título breve y los detalles descriptivos opcionales que hayas escrito.</li>
-                <li>Las fotos de evidencia que hayas subido de forma voluntaria.</li>
-                <li>La fecha y hora exacta en la que se registró el reporte.</li>
-              </ul>
-            </div>
-          </article>
+          <Section id="datos" numero={2} titulo="Qué datos recolectamos">
+            <p><strong>Cuando creás una cuenta:</strong></p>
+            <ul>
+              <li>Nombre visible (el que elegís mostrar como vecino).</li>
+              <li>Correo electrónico.</li>
+              <li>
+                Contraseña, que se guarda cifrada y a la que no tenemos acceso. Si entrás con
+                Google no se crea ninguna contraseña acá.
+              </li>
+              <li>
+                Si iniciás sesión con Google: el nombre y la foto de perfil que esa cuenta
+                comparta.
+              </li>
+              <li>
+                La fecha en que aceptaste estos documentos y la versión del texto que
+                aceptaste. Lo guardamos porque el art. 5 de la Ley 25.326 exige que el
+                consentimiento pueda acreditarse.
+              </li>
+            </ul>
 
-          {/* Tarjeta 3: Seguridad y Rate Limiting Criptográfico */}
-          <article className="glass-strong p-6 md:p-8 flex flex-col sm:flex-row gap-5 items-start transition-all hover:border-border-strong hover:-translate-y-0.5 duration-300">
-            <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/25 text-purple-400 shrink-0">
-              <Lock size={22} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <h3 className="font-outfit font-bold text-base text-white tracking-wide">
-                3. Cómo resguardamos tu identidad en el servidor
-              </h3>
-              <p className="font-jakarta text-xs text-muted leading-relaxed">
-                Para evitar el spam, las alertas falsas o ataques maliciosos que puedan saturar el servicio, implementamos un sistema dual de control de reportes. Para ello, el servidor registra de forma temporal:
-              </p>
-              <ul className="list-disc list-inside font-jakarta text-xs text-muted leading-relaxed pl-2 flex flex-col gap-1 mt-1">
-                <li>Una huella digital anónima de tu navegador (generada localmente).</li>
-                <li>La dirección de red (IP) desde la que se realiza la publicación.</li>
-              </ul>
-              <p className="font-jakarta text-xs text-muted leading-relaxed mt-2">
-                <strong>Importante:</strong> Estos identificadores se procesan en el servidor y se someten **inmediatamente** a un algoritmo criptográfico de un solo sentido (hashing irreversible con sal secreta SHA-256) antes de ser almacenados en la base de datos de control. Nadie, ni siquiera los administradores del sistema, puede descifrar o reconstruir tu dirección IP ni rastrear tu dispositivo físico.
-              </p>
-            </div>
-          </article>
+            <p><strong>Cuando publicás una alerta:</strong></p>
+            <ul>
+              <li>La ubicación que marcás en el mapa (latitud y longitud).</li>
+              <li>
+                Una etiqueta de dirección aproximada, que se obtiene consultando esas
+                coordenadas al servicio de geocodificación de Google.
+              </li>
+              <li>Categoría, título y, si querés, una descripción.</li>
+              <li>Las fotos que subas.</li>
+              <li>Fecha y hora, y el vínculo con tu cuenta.</li>
+            </ul>
 
-          {/* Tarjeta 4: Límites de Uso Justo */}
-          <article className="glass-strong p-6 md:p-8 flex flex-col sm:flex-row gap-5 items-start transition-all hover:border-border-strong hover:-translate-y-0.5 duration-300">
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 shrink-0">
-              <Scale size={22} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <h3 className="font-outfit font-bold text-base text-white tracking-wide">
-                4. Límites de publicación y control de spam
-              </h3>
-              <p className="font-jakarta text-xs text-muted leading-relaxed">
-                Para garantizar la salud de la plataforma y evitar abusos, los límites diarios de publicación por dispositivo y red son:
-              </p>
-              <ul className="list-disc list-inside font-jakarta text-xs text-muted leading-relaxed pl-2 flex flex-col gap-1 mt-1">
-                <li>Máximo de **5 reportes diarios** por navegador web.</li>
-                <li>Máximo de **10 reportes diarios** por conexión de red pública (IP).</li>
-              </ul>
-              <p className="font-jakarta text-xs text-muted leading-relaxed mt-1">
-                Al transcurrir una ventana rodante de 24 horas, los contadores se limpian de forma automática y transparente.
-              </p>
-            </div>
-          </article>
+            <p><strong>Datos técnicos que registra el servidor:</strong></p>
+            <ul>
+              <li>Un resumen criptográfico (hash SHA-256) de tu dirección IP.</li>
+              <li>Un resumen criptográfico (hash SHA-256) de la huella de tu navegador.</li>
+              <li>
+                El identificador de tu navegador y sistema operativo («user agent»), que se
+                guarda sin transformar.
+              </li>
+              <li>El origen desde el que se envió la solicitud.</li>
+              <li>
+                Si activás las notificaciones, un token del servicio de mensajería de Google
+                asociado a tu dispositivo.
+              </li>
+            </ul>
+            <p>
+              También registramos las acciones de moderación sobre cada reporte (quién cambió
+              un estado, quién lo ocultó o lo restauró) para poder auditarlas.
+            </p>
+          </Section>
+
+          <Section id="publico" numero={3} titulo="Qué se publica y queda visible para cualquiera">
+            <p>De cada alerta se muestra públicamente, sin necesidad de tener cuenta:</p>
+            <ul>
+              <li>
+                <strong>Tu nombre visible</strong>, con la leyenda «Vecino Registrado».
+              </li>
+              <li>La ubicación exacta en el mapa y la etiqueta de dirección.</li>
+              <li>La categoría, el título y la descripción.</li>
+              <li>Las fotos que hayas subido, sin edición ni difuminado.</li>
+              <li>La fecha y hora del reporte y su estado.</li>
+            </ul>
+            <p>
+              Si tu cuenta no tiene un nombre visible cargado —algo que puede pasar al entrar
+              con Google si esa cuenta no comparte un nombre— la alerta se publica con una
+              denominación genérica.{' '}
+              <strong>Tu correo electrónico no se publica nunca, ni siquiera en parte.</strong>
+            </p>
+            <p>
+              Tampoco se publican tu contraseña, tu dirección IP ni los datos técnicos del
+              punto 5.
+            </p>
+          </Section>
+
+          <Section id="finalidades" numero={4} titulo="Para qué usamos los datos y cuáles son obligatorios">
+            <p>Usamos tus datos para:</p>
+            <ul>
+              <li>Crear y mantener tu cuenta y permitirte iniciar sesión.</li>
+              <li>Publicar las alertas en el mapa y atribuirlas a su autor.</li>
+              <li>Moderar el contenido y atender denuncias sobre publicaciones.</li>
+              <li>Prevenir el spam, las alertas falsas y el uso abusivo del servicio.</li>
+              <li>Enviarte notificaciones, solo si las activaste.</li>
+              <li>Responder tus consultas y los pedidos sobre tus datos.</li>
+            </ul>
+            <p>
+              <strong>Datos obligatorios:</strong> el nombre visible, el correo y la contraseña
+              son necesarios para tener cuenta; sin ellos no podés registrarte. La ubicación,
+              la categoría y el título son necesarios para publicar una alerta. Si no los
+              proporcionás, no vas a poder usar esas funciones, pero podés seguir viendo el
+              mapa libremente.
+            </p>
+            <p>
+              <strong>Datos facultativos:</strong> la descripción, las fotos, la foto de
+              perfil y las notificaciones push. No darlos no tiene ninguna consecuencia más
+              que no contar con esa función.
+            </p>
+          </Section>
+
+          <Section id="antiabuso" numero={5} titulo="Huella de navegador, IP y bloqueos: cómo funciona de verdad">
+            <p>
+              Esta es la parte que conviene que entiendas bien, porque suele explicarse mal.
+            </p>
+            <p>
+              Cuando publicás una alerta, tu navegador genera una <strong>huella
+              técnica</strong>: una combinación de características de tu dispositivo y tu
+              navegador que, juntas, lo distinguen de otros. Esa huella y tu dirección IP se
+              transforman en el servidor mediante un hash SHA-256 con una clave secreta, y
+              solo se guarda el resultado. <strong>No almacenamos tu IP ni tu huella en
+              texto legible</strong>, y a partir del hash no podemos reconstruir el valor
+              original.
+            </p>
+            <p>Los usamos para dos cosas:</p>
+            <ul>
+              <li>
+                Aplicar los límites de publicación: 5 alertas por día por navegador y 10 por
+                día por conexión de red.
+              </li>
+              <li>
+                <strong>Bloquear el acceso</strong> de quien haga un uso abusivo de la
+                plataforma, aunque se cree una cuenta nueva.
+              </li>
+            </ul>
+            <p>
+              Ahora, lo importante y lo que hay que decir con todas las letras:{' '}
+              <strong>que el dato esté hasheado no lo vuelve anónimo</strong>. Justamente
+              porque podemos comparar el hash para reconocer un dispositivo ya bloqueado,
+              seguimos pudiendo distinguirte del resto de los usuarios. Técnicamente eso es un
+              dato <strong>seudonimizado</strong>, no anónimo, y por lo tanto sigue siendo un
+              dato personal protegido por la Ley 25.326, con todos los derechos que eso te da
+              (ver el punto 11).
+            </p>
+            <p>
+              No usamos esta información para perfilarte, para publicidad ni para seguir tu
+              navegación fuera de este sitio. Solo para seguridad y control de abuso.
+            </p>
+          </Section>
+
+          <Section id="cookies" numero={6} titulo="Cookies y almacenamiento en tu navegador">
+            <p>
+              <strong>No usamos cookies de publicidad ni de analítica de terceros.</strong> No
+              hay Google Analytics, ni píxel de Meta, ni herramientas de seguimiento
+              comercial de ningún tipo.
+            </p>
+            <p><strong>Estrictamente necesario</strong> (no se puede desactivar):</p>
+            <ul>
+              <li>
+                Cookies y almacenamiento local del sistema de autenticación, que mantienen tu
+                sesión iniciada y la renuevan. Sin esto tendrías que iniciar sesión en cada
+                acción.
+              </li>
+              <li>
+                El identificador de huella de navegador descripto en el punto 5, que se guarda
+                en el almacenamiento de sesión y se borra al cerrar la pestaña. Es lo que
+                sostiene los límites antiabuso y los bloqueos: si pudiera desactivarse,
+                bastaría con rechazarlo para evadirlos.
+              </li>
+              <li>
+                Una marca temporal que recuerda si dejaste una alerta a medio cargar antes de
+                iniciar sesión, para no perder lo que escribiste.
+              </li>
+            </ul>
+            <p><strong>Opcional</strong> (solo si lo aceptás en el banner):</p>
+            <ul>
+              <li>Recordar que ya viste el recorrido guiado de la interfaz.</li>
+              <li>
+                Las notificaciones push, que además requieren que se lo autorices al navegador
+                por separado.
+              </li>
+            </ul>
+            <p>
+              Podés cambiar tu decisión borrando los datos del sitio desde la configuración de
+              tu navegador; el banner vuelve a aparecer.
+            </p>
+          </Section>
+
+          <Section id="terceros" numero={7} titulo="Con quién se comparten">
+            <p>
+              No vendemos ni cedemos tus datos con fines comerciales. Para poder funcionar, la
+              aplicación se apoya en estos proveedores, que tratan datos por cuenta nuestra:
+            </p>
+            <ul>
+              <li><strong>Supabase</strong> — base de datos y sistema de cuentas.</li>
+              <li>
+                <strong>Google / Firebase</strong> — verificación de que las solicitudes vienen
+                de la app legítima, notificaciones push, mapas base e identificación de la
+                dirección aproximada a partir de las coordenadas.
+              </li>
+              <li><strong>Cloudinary</strong> — alojamiento de las fotos de los reportes.</li>
+              <li><strong>Vercel</strong> — alojamiento de la aplicación.</li>
+            </ul>
+            <p>
+              Además, podemos entregar información a las autoridades judiciales o
+              administrativas competentes cuando exista un requerimiento legal válido, y
+              compartir un reporte con el organismo municipal o la fuerza de seguridad que
+              corresponda cuando su contenido lo amerite.
+            </p>
+            <p>
+              Quienes intervenimos en el tratamiento —incluidos los moderadores del panel de
+              administración— estamos obligados al deber de confidencialidad del art. 10 de la
+              Ley 25.326, que subsiste incluso después de terminada la tarea.
+            </p>
+          </Section>
+
+          <Section id="transferencia" numero={8} titulo="Tus datos salen del país">
+            <p>
+              Los proveedores del punto 7 alojan la información en servidores ubicados fuera
+              de la República Argentina, principalmente en <strong>Estados Unidos</strong>.
+            </p>
+            <p>
+              Corresponde ser claro sobre esto: Estados Unidos{' '}
+              <strong>no integra la lista de países con nivel de protección adecuado</strong>{' '}
+              que publica la Agencia de Acceso a la Información Pública. Por eso, conforme al
+              art. 12 de la Ley 25.326, esa transferencia necesita tu consentimiento expreso.
+            </p>
+            <p>
+              <strong>Al crear tu cuenta prestás ese consentimiento</strong> para que tus datos
+              se transfieran y almacenen en el exterior con la única finalidad de operar el
+              servicio descripta en esta política. Si no estás de acuerdo con esta
+              transferencia, no vas a poder usar la aplicación, porque no tenemos
+              infraestructura alternativa dentro del país.
+            </p>
+          </Section>
+
+          <Section id="conservacion" numero={9} titulo="Cuánto tiempo los guardamos">
+            <p>
+              Los datos de tu cuenta se conservan mientras la cuenta exista. Las alertas
+              publicadas se conservan de forma indefinida, porque el historial del estado de
+              la vía pública es el sentido mismo del proyecto.
+            </p>
+            <p>
+              Los reportes eliminados no se borran físicamente de inmediato: quedan marcados
+              como eliminados y dejan de mostrarse, para poder revertir errores de moderación
+              y responder requerimientos legales.
+            </p>
+            <p>
+              Los contadores de límite diario se reinician automáticamente al vencer la
+              ventana de 24 horas. Los hashes vinculados a un bloqueo se conservan mientras el
+              bloqueo esté vigente.
+            </p>
+          </Section>
+
+          <Section id="seguridad" numero={10} titulo="Cómo los protegemos">
+            <p>
+              Adoptamos las medidas técnicas y organizativas exigidas por el art. 9 de la Ley
+              25.326, tomando como referencia las medidas recomendadas por la Resolución
+              AAIP 47/2018: conexión cifrada en todo el sitio, contraseñas almacenadas con
+              cifrado irreversible, acceso al panel de administración restringido por roles,
+              verificación de origen de las solicitudes y hasheo de los identificadores
+              técnicos.
+            </p>
+            <p>
+              Ningún sistema es infalible. Si detectamos un incidente de seguridad que afecte
+              tus datos personales, te lo vamos a informar.
+            </p>
+          </Section>
+
+          <Section id="derechos" numero={11} titulo="Tus derechos y cómo ejercerlos">
+            <p>
+              Podés pedirnos en cualquier momento <strong>acceder</strong> a tus datos,{' '}
+              <strong>rectificarlos</strong> si son inexactos, <strong>actualizarlos</strong> o{' '}
+              <strong>suprimirlos</strong> (arts. 14 a 16 de la Ley 25.326). También podés
+              pedir la baja de tu cuenta.
+            </p>
+            <p>
+              Escribinos a <a href={`mailto:${CONTACTO}`}>{CONTACTO}</a> desde el correo con el
+              que te registraste, indicando qué querés. Respondemos dentro de los plazos
+              legales: 10 días corridos para los pedidos de acceso y 5 días hábiles para los
+              de rectificación, actualización o supresión.
+            </p>
+
+            <Leyenda>
+              El titular de los datos personales tiene la facultad de ejercer el derecho de
+              acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses,
+              salvo que se acredite un interés legítimo al efecto conforme lo establecido en
+              el artículo 14, inciso 3 de la Ley N° 25.326.
+            </Leyenda>
+
+            <Leyenda>
+              La AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA, en su carácter de Órgano de
+              Control de la Ley N° 25.326, tiene la atribución de atender las denuncias y
+              reclamos que se interpongan en relación al incumplimiento de las normas sobre
+              protección de datos personales.
+            </Leyenda>
+          </Section>
+
+          <Section id="sensibles" numero={12} titulo="Datos sensibles y datos de terceros">
+            <p>
+              No te pedimos datos sensibles y no queremos tenerlos. Nadie está obligado a
+              proporcionarlos (art. 7 de la Ley 25.326).
+            </p>
+            <p>
+              Como las alertas las escriben los usuarios, puede ocurrir que alguien mencione
+              datos sensibles de otra persona o publique una foto donde aparezca alguien
+              identificable. Eso está expresamente prohibido por los{' '}
+              <Link href="/terminos#reglas" target="_blank" rel="noopener noreferrer">
+                Términos y Condiciones
+              </Link>
+              , y podés pedir la
+              baja de ese contenido escribiéndonos. El procedimiento está en el{' '}
+              <Link href="/terminos#denuncias" target="_blank" rel="noopener noreferrer">
+                punto 8 de los Términos
+              </Link>
+              .
+            </p>
+          </Section>
+
+          <Section id="menores" numero={13} titulo="Menores de edad">
+            <p>
+              El servicio está dirigido a personas mayores de 18 años y no recolectamos datos
+              de menores de forma consciente. Si tomamos conocimiento de una cuenta de una
+              persona menor de edad, la damos de baja y eliminamos sus datos. Si sos madre,
+              padre o tutor y creés que esto ocurrió, escribinos.
+            </p>
+          </Section>
+
+          <Section id="ambito" numero={14} titulo="Ámbito territorial">
+            <p>
+              La aplicación está dirigida a residentes de Aguilares, provincia de Tucumán,
+              República Argentina, y se rige por la legislación argentina. No está orientada a
+              usuarios de la Unión Europea ni realizamos seguimiento de personas ubicadas allí.
+            </p>
+          </Section>
+
+          <Section id="cambios" numero={15} titulo="Cambios en esta política">
+            <p>
+              Si cambian las funciones de la aplicación o la normativa aplicable, vamos a
+              actualizar esta política y a modificar la fecha que figura arriba. Cuando el
+              cambio afecte de forma sustancial el tratamiento de tus datos, lo avisaremos
+              dentro de la aplicación.
+            </p>
+          </Section>
 
         </div>
 
-        {/* Footer Informativo */}
-        <footer className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left select-none">
+        <footer className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <p className="font-jakarta text-[11px] text-muted">
-            Alertas Aguilares es una iniciativa ciudadana colaborativa de código abierto enfocada en mejorar la calidad de vida y seguridad de la ciudad de Aguilares.
+            ¿Consultas sobre tus datos? Escribinos a{' '}
+            <a
+              href={`mailto:${CONTACTO}`}
+              className="text-accent font-semibold underline underline-offset-2"
+            >
+              {CONTACTO}
+            </a>
           </p>
-          <span className="font-mono text-[9.5px] text-accent/80 shrink-0">
-            Versión MVP 1.1
-          </span>
+          <Link
+            href="/terminos"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-ghost text-xs py-2 px-4 rounded-lg shrink-0"
+          >
+            Ver Términos y Condiciones
+          </Link>
         </footer>
 
       </div>

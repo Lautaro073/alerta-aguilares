@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { markPendingTermsAcceptance, takePendingTermsAcceptance } from '@/lib/legal';
 
 interface UserProfile {
   uid: string;
@@ -10,6 +11,8 @@ interface UserProfile {
   email: string | null;
   photoURL: string | null;
   role: 'user' | 'admin' | 'operator' | 'official';
+  termsAcceptedAt: string | null;
+  termsVersion: string | null;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -27,9 +30,14 @@ interface AuthContextType {
   profile: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (acceptedTerms?: boolean) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, displayName: string) => Promise<boolean>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    displayName: string,
+    acceptedTerms: boolean
+  ) => Promise<boolean>;
   signOut: () => Promise<void>;
 }
 
@@ -40,14 +48,21 @@ function hasAdminAccess(role: UserProfile['role']) {
   return ADMIN_ROLES.includes(role);
 }
 
-async function syncSupabaseProfile(session: Session): Promise<{ user: AuthUser; profile: UserProfile }> {
+async function syncSupabaseProfile(
+  session: Session,
+  acceptedTermsVersion?: string | null
+): Promise<{ user: AuthUser; profile: UserProfile }> {
   const response = await fetch('/api/users/me', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(
+      acceptedTermsVersion
+        ? { acceptedTerms: true, termsVersion: acceptedTermsVersion }
+        : {}
+    ),
   });
 
   if (!response.ok) {
@@ -93,7 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const result = await syncSupabaseProfile(session);
+        // El alta con Google vuelve por acá tras el redirect: si dejó marca de
+        // consentimiento, este es el primer momento con sesión para registrarlo.
+        const result = await syncSupabaseProfile(session, takePendingTermsAcceptance());
         if (cancelled) return;
 
         setUser(result.user);
@@ -142,7 +159,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (acceptedTerms = false) => {
+    // Hay que dejar la marca ANTES del redirect: la pestaña se va al proveedor
+    // de identidad y vuelve sin nada del estado de React.
+    if (acceptedTerms) markPendingTermsAcceptance();
+
     const { error } = await supabaseBrowser.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -154,7 +175,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const signUpWithEmail = async (email: string, password: string, displayName: string) => {
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+    displayName: string,
+    acceptedTerms: boolean
+  ) => {
     const { data, error } = await supabaseBrowser.auth.signUp({
       email,
       password,
@@ -165,9 +191,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) throw error;
+
+    // Cuando hace falta confirmar el correo no hay sesión todavía, así que no se
+    // puede escribir en la tabla: queda la marca y se registra al primer ingreso.
+    if (acceptedTerms) markPendingTermsAcceptance();
     if (!data.session) return false;
 
-    const result = await syncSupabaseProfile(data.session);
+    const result = await syncSupabaseProfile(data.session, takePendingTermsAcceptance());
     setUser(result.user);
     setProfile(result.profile);
     setIsAdmin(hasAdminAccess(result.profile.role));

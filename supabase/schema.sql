@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS users (
   shift TEXT,
   employee_status TEXT CHECK (employee_status IS NULL OR employee_status IN ('pending', 'active', 'disabled')),
   employee_created_by TEXT REFERENCES users(uid) ON DELETE SET NULL,
+  -- Consentimiento a los Términos y la Política de Privacidad (Ley 25.326, art. 5).
+  -- NULL = cuenta anterior al registro de consentimiento.
+  terms_accepted_at TIMESTAMPTZ,
+  terms_version TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

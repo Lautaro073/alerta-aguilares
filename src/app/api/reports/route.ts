@@ -5,6 +5,7 @@ import { hashValue } from '@/lib/server/hash';
 import { env } from '@/lib/server/env';
 import { verifyAppCheckToken } from '@/lib/server/appCheck';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
+import { DEFAULT_DISPLAY_NAME } from '@/lib/constants/user';
 import { getPublicReportCacheHeaders, getReportById, listPublicReports } from '@/features/reports/server/reportQueries';
 import { triggerReportPushNotifications } from '@/features/reports/server/reportNotifications';
 import { resolveLocationLabel } from '@/features/reports/server/locationLabel';
@@ -173,10 +174,11 @@ export async function POST(request: NextRequest) {
 
     const metadataName = [metadata.display_name, metadata.full_name, metadata.name]
       .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    // Nunca derivar el nombre público del correo: se publica en el mapa y
+    // expondría parte de la dirección de quien reporta.
     const userDisplayName = userRow?.display_name
       || metadataName
-      || authData.user.email?.split('@')[0]
-      || 'Usuario registrado';
+      || DEFAULT_DISPLAY_NAME;
 
     // 4. Rate Limiting Dual (Fingerprint + IP)
     const ip = getClientIp(request);

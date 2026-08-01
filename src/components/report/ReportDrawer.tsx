@@ -322,10 +322,11 @@ export default function ReportDrawer({
                   ) : (
                     <span className="font-jakarta text-[9.5px] text-muted flex items-center gap-1.5 justify-center">
                       <Lock size={11} className="text-accent shrink-0" />
-                      <span>Tu reporte es 100% anónimo. Leé nuestra{' '}</span>
+                      <span>Para publicar necesitás una cuenta y tu nombre queda visible en la alerta. Leé nuestra{' '}</span>
                       <Link
                         href="/privacidad"
                         target="_blank"
+                        rel="noopener noreferrer"
                         className="text-accent hover:underline font-bold"
                       >
                         Política de Privacidad

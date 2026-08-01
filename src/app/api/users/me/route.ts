@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { serverError } from '@/lib/server/response';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { DEFAULT_DISPLAY_NAME } from '@/lib/constants/user';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,8 @@ interface UserProfileResponse {
   email: string | null;
   photoURL: string | null;
   role: UserRole;
+  termsAcceptedAt: string | null;
+  termsVersion: string | null;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -76,6 +79,8 @@ interface UserRow {
   email: string | null;
   photo_url: string | null;
   role: UserRole;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -87,6 +92,8 @@ function serializeProfile(data: UserRow): UserProfileResponse {
     email: data.email || null,
     photoURL: data.photo_url || null,
     role: data.role || 'user',
+    termsAcceptedAt: data.terms_accepted_at || null,
+    termsVersion: data.terms_version || null,
     createdAt: data.created_at || null,
     updatedAt: data.updated_at || null,
   };
@@ -118,15 +125,29 @@ export async function POST(request: NextRequest) {
     const displayName =
       typeof body.displayName === 'string' && body.displayName.trim().length > 0
         ? body.displayName.trim().slice(0, 80)
-        : existing?.display_name || decodedToken.name || 'Vecino Anonimo';
+        : existing?.display_name || decodedToken.name || DEFAULT_DISPLAY_NAME;
 
-    const nextProfile = {
+    const nextProfile: Record<string, unknown> = {
       uid,
       display_name: displayName,
       email: existing?.email || decodedToken.email || null,
       photo_url: existing?.photo_url || decodedToken.picture || null,
       role: existing?.role || 'user',
     };
+
+    // Consentimiento a los Términos y la Política de Privacidad (Ley 25.326, art. 5).
+    // Se registra una sola vez: si ya hay fecha, no se pisa, porque el dato que
+    // importa acreditar es cuándo aceptó por primera vez.
+    const acceptedTerms = body.acceptedTerms === true;
+    const termsVersion =
+      typeof body.termsVersion === 'string' && body.termsVersion.trim().length > 0
+        ? body.termsVersion.trim().slice(0, 40)
+        : null;
+
+    if (acceptedTerms && termsVersion && !existing?.terms_accepted_at) {
+      nextProfile.terms_accepted_at = new Date().toISOString();
+      nextProfile.terms_version = termsVersion;
+    }
 
     const { data: savedProfile, error: upsertError } = await supabaseAdmin
       .from('users')

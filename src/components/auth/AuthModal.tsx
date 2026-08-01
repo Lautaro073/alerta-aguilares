@@ -15,6 +15,7 @@ import {
   User,
   X,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { createRecoveryClient, supabaseBrowser } from '@/lib/supabase/client';
 
@@ -48,6 +49,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,6 +71,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setPassword('');
     setConfirmPassword('');
     setOtp('');
+    setAcceptedTerms(false);
   };
 
   const clearRecoverySession = () => {
@@ -92,13 +95,22 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setPassword('');
     setConfirmPassword('');
     setOtp('');
+    setAcceptedTerms(false);
   };
 
   const handleGoogleSignIn = async () => {
+    // El alta con Google no pasa por el formulario, así que el consentimiento
+    // hay que exigirlo también acá: si no, la mitad de las cuentas se crearían
+    // sin aceptar nada.
+    if (mode === 'register' && !acceptedTerms) {
+      setError('Para crear tu cuenta tenés que aceptar los Términos y la Política de Privacidad.');
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      await signInWithGoogle();
+      await signInWithGoogle(mode === 'register');
     } catch (caughtError) {
       const rawMessage = caughtError instanceof Error ? caughtError.message : '';
       setError(rawMessage || 'No se pudo iniciar sesión con Google.');
@@ -132,6 +144,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
     if ((mode === 'register' || mode === 'reset') && password !== confirmPassword) {
       setError('Las contraseñas no coinciden.');
+      return;
+    }
+    if (mode === 'register' && !acceptedTerms) {
+      setError('Para crear tu cuenta tenés que aceptar los Términos y la Política de Privacidad.');
       return;
     }
 
@@ -180,7 +196,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       }
 
       if (mode === 'register') {
-        const hasSession = await signUpWithEmail(normalizedEmail, password, displayName);
+        const hasSession = await signUpWithEmail(
+          normalizedEmail,
+          password,
+          displayName,
+          acceptedTerms
+        );
         if (hasSession) {
           toast.success('Cuenta creada. Ya puedes publicar alertas.');
           resetForm();
@@ -388,6 +409,48 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </button>
             )}
 
+            {mode === 'register' && (
+              <label
+                htmlFor="auth-terms"
+                className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-border bg-surface-1/40 p-3 transition-colors hover:border-border-strong"
+              >
+                <input
+                  id="auth-terms"
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(event) => setAcceptedTerms(event.target.checked)}
+                  disabled={isLoading}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-accent"
+                />
+                <span className="text-[11px] leading-relaxed text-muted">
+                  Soy mayor de 18 años y acepto los{' '}
+                  <Link
+                    href="/terminos"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-accent hover:text-accent/80 underline underline-offset-2"
+                  >
+                    Términos y Condiciones
+                  </Link>{' '}
+                  y la{' '}
+                  <Link
+                    href="/privacidad"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-accent hover:text-accent/80 underline underline-offset-2"
+                  >
+                    Política de Privacidad
+                  </Link>
+                  . Entiendo que{' '}
+                  <strong className="font-semibold text-foreground/90">
+                    mis alertas se publican con mi nombre visible
+                  </strong>{' '}
+                  y presto mi consentimiento para que mis datos se alojen en servidores
+                  fuera de la Argentina.
+                </span>
+              </label>
+            )}
+
             <button type="submit" disabled={isLoading} className="btn btn-primary w-full py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 mt-1 h-10 select-none cursor-pointer">
               {isLoading ? <Loader2 size={16} className="animate-spin" /> : mode === 'login' ? 'Iniciar sesión' : mode === 'register' ? 'Crear cuenta' : mode === 'recover' ? 'Enviar código' : mode === 'verify' ? 'Comprobar código' : 'Cambiar contraseña'}
             </button>
@@ -408,6 +471,30 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   <GoogleIcon />
                   Google
                 </button>
+                {mode === 'login' && (
+                  <p className="text-center text-[10px] leading-relaxed text-muted">
+                    Si es la primera vez que entrás con Google, se crea tu cuenta y aceptás
+                    los{' '}
+                    <Link
+                      href="/terminos"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-accent hover:text-accent/80 underline underline-offset-2"
+                    >
+                      Términos
+                    </Link>{' '}
+                    y la{' '}
+                    <Link
+                      href="/privacidad"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-accent hover:text-accent/80 underline underline-offset-2"
+                    >
+                      Política de Privacidad
+                    </Link>
+                    .
+                  </p>
+                )}
               </>
             )}
 

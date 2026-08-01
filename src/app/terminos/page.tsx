@@ -242,14 +242,30 @@ export default function TerminosPage() {
           </Section>
 
           <Section id="fotos" numero={6} titulo="Fotos: leé esto antes de subir una">
+            <p>Antes de publicarse, cada foto pasa por dos filtros automáticos:</p>
+            <ul>
+              <li>
+                <strong>Difuminado de caras.</strong> A todas las fotos se les detectan y
+                difuminan los rostros, sin excepción.
+              </li>
+              <li>
+                <strong>Revisión de contenido sensible.</strong> Un servicio automático analiza
+                la imagen buscando documentos legibles, patentes, datos personales de terceros,
+                desnudez o heridas graves. Si detecta algo de eso,{' '}
+                <strong>se difumina la foto entera</strong>, no solo una parte.
+              </li>
+            </ul>
             <p>
-              Las fotos que subís se publican <strong>tal como las enviás</strong>. Hoy el
-              sistema <strong>no difumina caras, patentes ni ningún otro dato</strong> de
-              forma automática, y no hay revisión previa antes de que la imagen quede
-              visible en el mapa.
+              El difuminado se aplica al momento de subir la imagen, antes de que se guarde y
+              quede visible en el mapa.
             </p>
             <p>
-              Es decir: si en tu foto aparece una persona reconocible, la va a ver cualquiera.
+              <strong>Pero es automático, y lo automático falla.</strong> Una cara de perfil, a
+              contraluz, lejana o parcialmente tapada puede no ser detectada, y la revisión de
+              contenido sensible puede no estar disponible en un momento dado. No lo tomes como
+              una garantía: <strong>seguís siendo responsable de lo que subís</strong>.
+            </p>
+            <p>
               Encuadrá el problema que estás reportando y no a la gente que pasa. Si podés
               sacar la foto sin que aparezca nadie, sacala así.
             </p>
@@ -322,12 +338,29 @@ export default function TerminosPage() {
 
           <Section id="responsabilidad" numero={9} titulo="Hasta dónde respondemos">
             <p>
-              El contenido de las alertas lo generan los usuarios. No lo revisamos antes de
-              publicarlo y no verificamos que sea cierto, exacto ni actual. En consecuencia,{' '}
-              <strong>no respondemos por el contenido publicado por un usuario mientras no
-              tengamos conocimiento efectivo de su ilicitud</strong>. Desde que tomamos ese
-              conocimiento, respondemos si no actuamos con diligencia según el procedimiento
-              del punto 8.
+              El contenido de las alertas —texto, ubicación e imágenes— lo genera y lo publica
+              cada usuario, que es su <strong>único autor y único responsable</strong>. No lo
+              redactamos, no lo revisamos editorialmente y no verificamos que sea cierto,
+              exacto ni actual.
+            </p>
+            <p>
+              Los filtros automáticos del punto 6 son una medida de prevención que aplicamos
+              por decisión propia para reducir daños. <strong>No son una revisión editorial ni
+              una garantía de resultado</strong>: no implican que aprobemos o hagamos nuestro
+              el contenido publicado, y no trasladan hacia nosotros la responsabilidad de quien
+              lo subió. Que existan no nos vuelve responsables de lo que se les escape.
+            </p>
+            <p>
+              <strong>No respondemos por el contenido publicado por un usuario mientras no
+              tengamos conocimiento efectivo de su ilicitud.</strong> Desde que lo tomamos por
+              la vía del punto 8, nuestra única obligación es actuar con diligencia para dar de
+              baja o bloquear ese contenido; cumplido eso, la responsabilidad por el daño sigue
+              siendo enteramente de quien lo publicó.
+            </p>
+            <p>
+              Si un tercero nos reclama, nos demanda o nos sanciona por algo que publicaste,{' '}
+              <strong>te hacés cargo vos</strong>: quedás obligado a mantenernos indemnes por
+              los gastos, honorarios e indemnizaciones que eso nos genere.
             </p>
             <p>
               Tampoco garantizamos que el servicio esté disponible sin interrupciones ni
@@ -335,11 +368,10 @@ export default function TerminosPage() {
               decisiones que tomes en base a lo que leas acá son tuyas.
             </p>
             <p>
-              Ahora bien, <strong>esto no es una exención total de responsabilidad</strong>:
-              respondemos por los daños que causemos por dolo o culpa en la operación del
-              servicio, y nada de lo escrito acá limita los derechos que la ley te reconoce
-              como consumidor ni los que surgen del orden público. Si alguna cláusula de este
-              documento resultara inválida, el resto sigue vigente.
+              Por último, y porque la ley argentina no admite excluir toda responsabilidad:
+              nada de lo anterior nos exime del dolo o la culpa grave en la operación del
+              servicio, ni limita los derechos que el orden público te reconoce. Si alguna
+              cláusula de este documento resultara inválida, el resto sigue vigente.
             </p>
           </Section>
 

@@ -201,9 +201,22 @@ export default function PrivacyPage() {
               </li>
               <li>La ubicación exacta en el mapa y la etiqueta de dirección.</li>
               <li>La categoría, el título y la descripción.</li>
-              <li>Las fotos que hayas subido, sin edición ni difuminado.</li>
+              <li>Las fotos que hayas subido, con las caras difuminadas automáticamente.</li>
               <li>La fecha y hora del reporte y su estado.</li>
             </ul>
+            <p>
+              <strong>Las fotos no se publican tal como las mandás.</strong> Al subirlas, y
+              antes de guardarlas, se les difuminan los rostros de forma automática. Además, un
+              servicio automático las revisa buscando documentos legibles, patentes, datos
+              personales de terceros, desnudez o heridas graves; si detecta algo de eso, se
+              difumina la imagen completa. Ese análisis se hace con un proveedor externo
+              (ver el punto 7).
+            </p>
+            <p>
+              Es un proceso automático y puede fallar: una cara de perfil, lejana o poco
+              iluminada puede pasar sin detectarse.{' '}
+              <strong>No lo tomes como una garantía</strong> al decidir qué fotografiar.
+            </p>
             <p>
               Si tu cuenta no tiene un nombre visible cargado —algo que puede pasar al entrar
               con Google si esa cuenta no comparte un nombre— la alerta se publica con una
@@ -342,7 +355,12 @@ export default function PrivacyPage() {
                 de la app legítima, notificaciones push, mapas base e identificación de la
                 dirección aproximada a partir de las coordenadas.
               </li>
-              <li><strong>Cloudinary</strong> — alojamiento de las fotos de los reportes.</li>
+              <li><strong>Cloudinary</strong> — alojamiento de las fotos y difuminado de rostros.</li>
+              <li>
+                <strong>NVIDIA</strong> — revisión automática de las fotos para detectar
+                contenido sensible antes de publicarlas. La imagen se le envía únicamente con
+                esa finalidad y no forma parte de ningún perfil tuyo.
+              </li>
               <li><strong>Vercel</strong> — alojamiento de la aplicación.</li>
             </ul>
             <p>
@@ -360,8 +378,11 @@ export default function PrivacyPage() {
 
           <Section id="transferencia" numero={8} titulo="Tus datos salen del país">
             <p>
-              Los proveedores del punto 7 alojan la información en servidores ubicados fuera
-              de la República Argentina, principalmente en <strong>Estados Unidos</strong>.
+              Los proveedores del punto 7 alojan o procesan la información en servidores
+              ubicados fuera de la República Argentina, principalmente en{' '}
+              <strong>Estados Unidos</strong>. Esto incluye las fotos de los reportes, que se
+              envían al exterior tanto para almacenarse como para la revisión automática de
+              contenido sensible.
             </p>
             <p>
               Corresponde ser claro sobre esto: Estados Unidos{' '}

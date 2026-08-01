@@ -65,6 +65,14 @@ const ADMIN_CATEGORY_PRIORITY = new Map<string, number>([
   ['BACHE', 1],
   ['SENALIZACION', 1],
   ['VEHICULO_ABANDONADO', 1],
+  ['SEGURIDAD_URBANA', 0],
+  ['AGUA_CLOACAS', 0],
+  ['ANEGAMIENTO', 0],
+  ['ARBOLADO_PUBLICO', 0],
+  ['CABLES_POSTES', 0],
+  ['ESPACIOS_PUBLICOS', 1],
+  ['VEREDAS_ACCESIBILIDAD', 1],
+  ['RESIDUOS', 2],
 ]);
 
 function getTimeframeThreshold(timeframe: GetReportsQueryInput['timeframe']) {

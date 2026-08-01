@@ -167,6 +167,7 @@ function HomeView({ user, isAdmin, role }: ReportsViewProps) {
     actionLoading,
     updateReportStatus,
     updateReportArea,
+    updateReportPriority,
     archiveReport,
     restoreReport,
   } = useAdminReports({
@@ -215,7 +216,7 @@ function HomeView({ user, isAdmin, role }: ReportsViewProps) {
             },
           }}
         >
-          {renderAlertRows(reports, actionLoading, { updateReportStatus, updateReportArea, archiveReport, restoreReport }, role)}
+          {renderAlertRows(reports, actionLoading, { updateReportStatus, updateReportArea, updateReportPriority, archiveReport, restoreReport }, role)}
         </AdminDataTable>
 
         <aside className="admin-side-stack admin-home-side-stack">

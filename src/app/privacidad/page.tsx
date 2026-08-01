@@ -303,12 +303,25 @@ export default function PrivacyPage() {
                 iniciar sesión, para no perder lo que escribiste.
               </li>
             </ul>
-            <p><strong>Opcional</strong> (solo si lo aceptás en el banner):</p>
+            <p>
+              <strong>Opcional.</strong> Son dos funciones independientes y las aceptás por
+              separado en el banner: podés habilitar una y rechazar la otra. Las dos aparecen
+              desmarcadas, así que rechazarlas no cuesta más trabajo que aceptarlas.
+            </p>
             <ul>
-              <li>Recordar que ya viste el recorrido guiado de la interfaz.</li>
               <li>
-                Las notificaciones push, que además requieren que se lo autorices al navegador
-                por separado.
+                <strong>Notificaciones push.</strong> Guardan un identificador de tu dispositivo
+                en nuestro servidor para poder avisarte. Además de aceptarlas acá, tenés que
+                darle permiso a tu navegador por separado. También quedan habilitadas si tocás
+                el botón de la campana, porque pedir la función es aceptarla; eso no habilita la
+                otra opción. Mientras no las actives,{' '}
+                <strong>no se guarda ningún identificador de tu dispositivo</strong>.
+              </li>
+              <li>
+                <strong>Preferencias de interfaz.</strong> Recordar entre visitas que ya viste
+                el recorrido guiado, para no volver a mostrártelo. Si no lo aceptás, el
+                recorrido sigue funcionando igual: simplemente no queda registrado que ya lo
+                viste.
               </li>
             </ul>
             <p>

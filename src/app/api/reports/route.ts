@@ -11,6 +11,7 @@ import { triggerReportPushNotifications } from '@/features/reports/server/report
 import { resolveLocationLabel } from '@/features/reports/server/locationLabel';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { createReportEvent } from '@/lib/server/reportEvents';
+import { EMPLOYEE_ROLE_VALUES } from '@/features/admin/shared/employeeOptions';
 import type { CategoryId } from '@/lib/constants/categories';
 import type { ReportPriority } from '@/types/report';
 
@@ -23,6 +24,14 @@ const CATEGORY_PRIORITY = new Map<CategoryId, ReportPriority>([
   ['BACHE', 'medium'],
   ['SENALIZACION', 'medium'],
   ['VEHICULO_ABANDONADO', 'medium'],
+  ['SEGURIDAD_URBANA', 'high'],
+  ['RESIDUOS', 'low'],
+  ['AGUA_CLOACAS', 'high'],
+  ['ANEGAMIENTO', 'high'],
+  ['ARBOLADO_PUBLICO', 'high'],
+  ['CABLES_POSTES', 'high'],
+  ['ESPACIOS_PUBLICOS', 'medium'],
+  ['VEREDAS_ACCESIBILIDAD', 'medium'],
 ]);
 
 /**
@@ -158,19 +167,36 @@ export async function POST(request: NextRequest) {
       return badRequest('Validación de campos fallida.', parsedBody.error.format());
     }
 
-    const { lat, lng, category, title, description, images, fingerprintVisitorId, priority } = parsedBody.success ? parsedBody.data : body;
-    const reportPriority = priority || CATEGORY_PRIORITY.get(category) || 'low';
-    const locationLabel = await resolveLocationLabel(lat, lng);
-
+    const { lat, lng, category, title, description, images, fingerprintVisitorId, priority } = parsedBody.data;
     const userId = authData.user.id;
     const metadata = authData.user.user_metadata || {};
-    const { data: userRow, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('display_name')
-      .eq('uid', userId)
-      .maybeSingle();
+    const [locationLabel, userResult, categoryResult] = await Promise.all([
+      resolveLocationLabel(lat, lng),
+      supabaseAdmin
+        .from('users')
+        .select('display_name, role, employee_status')
+        .eq('uid', userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('incident_categories')
+        .select('priority')
+        .eq('id', category)
+        .eq('city_id', DEFAULT_CITY_ID)
+        .maybeSingle(),
+    ]);
+
+    const { data: userRow, error: userError } = userResult;
 
     if (userError) throw userError;
+    if (categoryResult.error) throw categoryResult.error;
+
+    const configuredPriority = categoryResult.data?.priority;
+    const automaticPriority: ReportPriority = configuredPriority === 'high' || configuredPriority === 'medium' || configuredPriority === 'low'
+      ? configuredPriority
+      : CATEGORY_PRIORITY.get(category) || 'low';
+    const isEmployee = EMPLOYEE_ROLE_VALUES.some((role) => role === userRow?.role)
+      && userRow?.employee_status !== 'disabled';
+    const reportPriority = isEmployee && priority ? priority : automaticPriority;
 
     const metadataName = [metadata.display_name, metadata.full_name, metadata.name]
       .find((value): value is string => typeof value === 'string' && value.trim().length > 0);

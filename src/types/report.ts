@@ -1,7 +1,7 @@
 import { CategoryId } from '@/lib/constants/categories';
 
 export type ReportStatus = 'PENDING' | 'VERIFYING' | 'IN_PROGRESS' | 'RESOLVED' | 'DISMISSED' | 'DUPLICATE';
-export type ReportAssignedArea = 'traffic' | 'public_works' | 'lighting' | 'environment';
+export type ReportAssignedArea = 'traffic' | 'public_works' | 'lighting' | 'environment' | 'security';
 export type ReportPriority = 'high' | 'medium' | 'low';
 
 /**

@@ -1,4 +1,4 @@
-import type { Report, ReportAssignedArea, ReportStatus } from '@/types/report';
+import type { Report, ReportAssignedArea, ReportPriority, ReportStatus } from '@/types/report';
 
 export type AdminStatusFilter = 'ALL' | ReportStatus | 'DELETED';
 export type AdminTimeframeFilter = 'all' | '7d' | '30d';
@@ -38,6 +38,7 @@ export type AdminActionLoading = Record<string, boolean>;
 export type AdminReportActionHandlers = {
   updateReportStatus: (reportId: string, status: ReportStatus, duplicateOfReportId?: string | null) => Promise<void>;
   updateReportArea: (reportId: string, assignedArea: ReportAssignedArea | null) => Promise<void>;
+  updateReportPriority?: (reportId: string, priority: ReportPriority) => Promise<void>;
   archiveReport: (reportId: string) => Promise<void>;
   restoreReport: (reportId: string) => Promise<void>;
 };

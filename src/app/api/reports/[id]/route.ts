@@ -5,12 +5,13 @@ import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
 import { createReportEvent } from '@/lib/server/reportEvents';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
-import type { ReportAssignedArea, ReportStatus } from '@/types/report';
+import type { ReportAssignedArea, ReportPriority, ReportStatus } from '@/types/report';
 
 export const dynamic = 'force-dynamic';
 
 const REPORT_STATUSES: ReportStatus[] = ['PENDING', 'VERIFYING', 'IN_PROGRESS', 'RESOLVED', 'DISMISSED', 'DUPLICATE'];
 const ASSIGNED_AREAS: ReportAssignedArea[] = ['traffic', 'public_works', 'lighting', 'environment'];
+const REPORT_PRIORITIES: ReportPriority[] = ['high', 'medium', 'low'];
 
 export async function PATCH(
   request: NextRequest,
@@ -21,7 +22,7 @@ export async function PATCH(
     const { uid, errorResponse } = await verifyAdminRole(request, ['admin', 'official']);
     if (errorResponse) return errorResponse;
 
-    let body: { status?: ReportStatus; assignedArea?: ReportAssignedArea | null; duplicateOfReportId?: string | null };
+    let body: { status?: ReportStatus; assignedArea?: ReportAssignedArea | null; priority?: ReportPriority; duplicateOfReportId?: string | null };
     try {
       body = await request.json();
     } catch {
@@ -32,7 +33,7 @@ export async function PATCH(
     }
 
     const { status } = body;
-    if (!status && body.assignedArea === undefined) {
+    if (!status && body.assignedArea === undefined && body.priority === undefined) {
       return Response.json(
         { success: false, error: 'No hay cambios para aplicar.' },
         { status: 400 }
@@ -49,6 +50,13 @@ export async function PATCH(
     if (body.assignedArea !== undefined && body.assignedArea !== null && !ASSIGNED_AREAS.includes(body.assignedArea)) {
       return Response.json(
         { success: false, error: 'Area asignada invalida.' },
+        { status: 400 }
+      );
+    }
+
+    if (body.priority !== undefined && !REPORT_PRIORITIES.includes(body.priority)) {
+      return Response.json(
+        { success: false, error: 'Prioridad invalida.' },
         { status: 400 }
       );
     }
@@ -103,6 +111,7 @@ export async function PATCH(
         ...(status ? { status, resolved_at: status === 'RESOLVED' ? nowISO : null } : {}),
         ...(status ? { duplicate_of_report_id: status === 'DUPLICATE' ? body.duplicateOfReportId || null : null } : {}),
         ...(body.assignedArea !== undefined ? { assigned_area: body.assignedArea } : {}),
+        ...(body.priority !== undefined ? { priority: body.priority } : {}),
         updated_at: nowISO,
       })
       .eq('id', reportId)
@@ -147,7 +156,7 @@ export async function PATCH(
       {
         success: true,
         message: 'Reporte actualizado con exito.',
-        data: { id: reportId, status, assignedArea: body.assignedArea },
+        data: { id: reportId, status, assignedArea: body.assignedArea, priority: body.priority },
       },
       { status: 200 }
     );

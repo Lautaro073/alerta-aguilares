@@ -47,12 +47,18 @@ CREATE TABLE IF NOT EXISTS reports (
     category IN (
       'BACHE',
       'SEMAFORO',
-      'OBRA_PELIGROSA',
-      'INUNDACION',
-      'ANIMALES',
-      'VEREDA',
+      'ACCIDENTE',
+      'SENALIZACION',
+      'VEHICULO_ABANDONADO',
+      'ALUMBRADO',
+      'SEGURIDAD_URBANA',
+      'RESIDUOS',
+      'AGUA_CLOACAS',
+      'ANEGAMIENTO',
+      'ARBOLADO_PUBLICO',
       'CABLES_POSTES',
-      'TRANSPORTE'
+      'ESPACIOS_PUBLICOS',
+      'VEREDAS_ACCESIBILIDAD'
     )
   ),
   title TEXT NOT NULL,

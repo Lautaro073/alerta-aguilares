@@ -3,13 +3,14 @@ import type { ReportAssignedArea, ReportPriority } from '@/types/report';
 import type { AdminReportListItem } from '../types/admin.types';
 import { getOptionLabel } from './AdminDashboardParts';
 
-export const HIGH_PRIORITY_CATEGORIES: CategoryId[] = ['ACCIDENTE', 'SEMAFORO', 'ALUMBRADO'];
-export const MEDIUM_PRIORITY_CATEGORIES: CategoryId[] = ['BACHE', 'SENALIZACION', 'VEHICULO_ABANDONADO'];
+export const HIGH_PRIORITY_CATEGORIES: CategoryId[] = ['ACCIDENTE', 'SEMAFORO', 'ALUMBRADO', 'SEGURIDAD_URBANA', 'AGUA_CLOACAS', 'ANEGAMIENTO', 'ARBOLADO_PUBLICO', 'CABLES_POSTES'];
+export const MEDIUM_PRIORITY_CATEGORIES: CategoryId[] = ['BACHE', 'SENALIZACION', 'VEHICULO_ABANDONADO', 'ESPACIOS_PUBLICOS', 'VEREDAS_ACCESIBILIDAD'];
 export const REPORT_AREA_OPTIONS: Array<{ value: ReportAssignedArea; label: string }> = [
   { value: 'traffic', label: 'Transito' },
   { value: 'public_works', label: 'Obras Publicas' },
   { value: 'lighting', label: 'Alumbrado' },
   { value: 'environment', label: 'Ambiente' },
+  { value: 'security', label: 'Seguridad' },
 ];
 
 export function getCategoryPriority(category: CategoryId) {
@@ -18,10 +19,17 @@ export function getCategoryPriority(category: CategoryId) {
   return { tone: 'secondary', count: 1 };
 }
 
+export function getReportPriorityValue(priority: ReportPriority | null | undefined, category: CategoryId): ReportPriority {
+  if (priority) return priority;
+  if (HIGH_PRIORITY_CATEGORIES.includes(category)) return 'high';
+  if (MEDIUM_PRIORITY_CATEGORIES.includes(category)) return 'medium';
+  return 'low';
+}
+
 export function getReportPriority(priority: ReportPriority | null | undefined, category: CategoryId) {
-  if (!priority) return getCategoryPriority(category);
-  if (priority === 'high') return { tone: 'error', count: 3 };
-  if (priority === 'medium') return { tone: 'primary', count: 2 };
+  const resolvedPriority = getReportPriorityValue(priority, category);
+  if (resolvedPriority === 'high') return { tone: 'error', count: 3 };
+  if (resolvedPriority === 'medium') return { tone: 'primary', count: 2 };
   return { tone: 'secondary', count: 1 };
 }
 

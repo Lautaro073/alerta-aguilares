@@ -8,6 +8,7 @@ interface ReportFormFieldsProps {
   title: string;
   description: string;
   images: string[];
+  canSetPriority: boolean;
   priority: ReportPriority | '';
   onChangeTitle: (val: string) => void;
   onChangeDescription: (val: string) => void;
@@ -27,6 +28,7 @@ export default function ReportFormFields({
   title,
   description,
   images,
+  canSetPriority,
   priority,
   onChangeTitle,
   onChangeDescription,
@@ -136,22 +138,24 @@ export default function ReportFormFields({
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="report-priority" className="font-outfit text-xs font-bold text-foreground/80 tracking-wide">
-          Prioridad
-        </label>
-        <select
-          id="report-priority"
-          value={priority}
-          onChange={(e) => onChangePriority(e.target.value as ReportPriority | '')}
-          className="w-full font-jakarta text-sm px-4 h-12 bg-surface-1 border border-border rounded-lg text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
-        >
-          <option value="" disabled>Elegir prioridad</option>
-          <option value="high">Alta</option>
-          <option value="medium">Media</option>
-          <option value="low">Baja</option>
-        </select>
-      </div>
+      {canSetPriority && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="report-priority" className="font-outfit text-xs font-bold text-foreground/80 tracking-wide">
+            Prioridad
+          </label>
+          <select
+            id="report-priority"
+            value={priority}
+            onChange={(e) => onChangePriority(e.target.value as ReportPriority | '')}
+            className="w-full font-jakarta text-sm px-4 h-12 bg-surface-1 border border-border rounded-lg text-foreground focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
+          >
+            <option value="" disabled>Elegir prioridad</option>
+            <option value="high">Alta</option>
+            <option value="medium">Media</option>
+            <option value="low">Baja</option>
+          </select>
+        </div>
+      )}
 
       {/* Cargador de Imágenes de Cloudinary */}
       <ImageUploader

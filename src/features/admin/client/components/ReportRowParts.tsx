@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CATEGORIES } from '@/lib/constants/categories';
-import type { ReportAssignedArea } from '@/types/report';
+import type { ReportAssignedArea, ReportPriority } from '@/types/report';
 import { type AdminDataTableColumn } from './AdminDataTable';
 import { CategoryLabel, PriorityBars } from './AdminDashboardParts';
 import { AdminTooltipButton } from './AdminTooltipButton';
@@ -12,6 +12,7 @@ import {
   REPORT_AREA_OPTIONS,
   getReportAreaLabel,
   getReportPriority,
+  getReportPriorityValue,
   getReportStatusLabel,
   getReportStatusTone,
 } from './adminReportDisplay';
@@ -40,6 +41,12 @@ const REPORT_STATUS_OPTIONS = [
   { value: 'DUPLICATE', label: 'Duplicada', icon: Copy },
   { value: 'DISMISSED', label: 'Desestimada', icon: ShieldAlert },
 ] satisfies Array<{ value: AdminReportListItem['status']; label: string; icon: typeof History }>;
+
+const REPORT_PRIORITY_OPTIONS = [
+  { value: 'high', label: 'Alta', tone: 'error', count: 3 },
+  { value: 'medium', label: 'Media', tone: 'primary', count: 2 },
+  { value: 'low', label: 'Baja', tone: 'secondary', count: 1 },
+] satisfies Array<{ value: ReportPriority; label: string; tone: string; count: number }>;
 
 export {
   HIGH_PRIORITY_CATEGORIES,
@@ -159,6 +166,39 @@ function ReportStatusSelect({
   );
 }
 
+function ReportPrioritySelect({
+  value,
+  loading,
+  onChange,
+}: {
+  value: ReportPriority;
+  loading: boolean;
+  onChange: (priority: ReportPriority) => void;
+}) {
+  const current = REPORT_PRIORITY_OPTIONS.find((option) => option.value === value) || REPORT_PRIORITY_OPTIONS[2];
+
+  if (!current) return null;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="admin-inline-select compact admin-status-select" disabled={loading} title={`Prioridad ${current.label}`}>
+          <PriorityBars tone={current.tone} count={current.count} />
+          <span>{current.label}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" sideOffset={6} className="admin-status-popover">
+        {REPORT_PRIORITY_OPTIONS.map((option) => (
+          <button key={option.value} type="button" disabled={loading || option.value === value} onClick={() => onChange(option.value)}>
+            <PriorityBars tone={option.tone} count={option.count} />
+            <span>{option.label}</span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 type ReportRowProps = AdminReportActionHandlers & {
   report: AdminReportListItem;
   loading: boolean;
@@ -166,7 +206,7 @@ type ReportRowProps = AdminReportActionHandlers & {
   menuDirection?: 'up' | 'down';
 };
 
-export function ReportRow({ report, loading, role, menuDirection = 'down', updateReportStatus, updateReportArea, archiveReport, restoreReport }: ReportRowProps) {
+export function ReportRow({ report, loading, role, menuDirection = 'down', updateReportStatus, updateReportArea, updateReportPriority, archiveReport, restoreReport }: ReportRowProps) {
   const category = CATEGORIES[report.category];
   const status = getReportStatusLabel(report.status);
   const priority = getReportPriority(report.priority, report.category);
@@ -186,7 +226,17 @@ export function ReportRow({ report, loading, role, menuDirection = 'down', updat
         )}
       </td>
       <td className="center bold">{report.verifiedCount || 0}</td>
-      <td><PriorityBars tone={priority.tone} count={priority.count} /></td>
+      <td>
+        {canEditStatus && updateReportPriority ? (
+          <ReportPrioritySelect
+            value={getReportPriorityValue(report.priority, report.category)}
+            loading={loading}
+            onChange={(priorityValue) => updateReportPriority(report.id, priorityValue)}
+          />
+        ) : (
+          <PriorityBars tone={priority.tone} count={priority.count} />
+        )}
+      </td>
       <td>
         {canUpdate ? (
           <select className="admin-inline-select" value={report.assignedArea || ''} disabled={loading} onChange={(event) => updateReportArea(report.id, event.target.value ? event.target.value as ReportAssignedArea : null)}>

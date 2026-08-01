@@ -12,6 +12,7 @@ import {
   ShieldOff,
   AlertTriangle,
 } from 'lucide-react';
+import { grantFeature, hasConsent } from '@/lib/consent';
 
 type PermissionState = 'default' | 'granted' | 'denied';
 type BellState = 'unsupported' | 'loading' | 'idle' | 'subscribed' | 'blocked';
@@ -42,6 +43,12 @@ export default function NotificationBell() {
   // Registra el token FCM en el backend de forma silenciosa (sin UI feedback).
   // Seguro de llamar múltiples veces: getToken() es idempotente y el endpoint usa merge:true.
   const registerTokenSilently = useCallback(async () => {
+    // Esto corre solo, sin que la persona toque nada. Sin consentimiento de las
+    // notificaciones no se registra ningún token: guardar un identificador del
+    // dispositivo en la base por iniciativa propia es exactamente lo que el
+    // banner permite rechazar.
+    if (!hasConsent('notifications')) return;
+
     try {
       const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
       if (!vapidKey) return;
@@ -81,6 +88,22 @@ export default function NotificationBell() {
   // Flujo completo de suscripción a notificaciones push via FCM
   const handleSubscribe = useCallback(async () => {
     if (bellState === 'subscribed') {
+      // El navegador ya tenía el permiso concedido, pero si no se aceptaron las
+      // notificaciones el token nunca se registró: la campana decía "suscrito" y
+      // en realidad no llegaba ninguna alerta. Tocarla es consentimiento
+      // explícito y específico para esta función, así que se habilita SOLO esta
+      // y recién ahí se manda el token.
+      if (!hasConsent('notifications')) {
+        grantFeature('notifications');
+        await registerTokenSilently();
+        showToast(
+          <CheckCircle2 size={13} />,
+          '¡Listo! Ya vas a recibir las alertas del mapa.',
+          'success'
+        );
+        return;
+      }
+
       showToast(<BellRing size={13} />, 'Ya estás suscrito a las alertas.', 'info');
       return;
     }
@@ -116,6 +139,13 @@ export default function NotificationBell() {
         setIsAnimating(false);
         return;
       }
+
+      // 1b. Pedir la campana y conceder el permiso del navegador es
+      //     consentimiento explícito para las notificaciones, aunque en el
+      //     banner se hubieran rechazado. Habilita únicamente esta función, no
+      //     toca las preferencias de interfaz, y queda registrado para que el
+      //     token pueda renovarse solo en las próximas visitas.
+      grantFeature('notifications');
 
       // 2. Verificar que la VAPID key esté configurada
       const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
@@ -177,7 +207,7 @@ export default function NotificationBell() {
     } finally {
       setIsAnimating(false);
     }
-  }, [bellState, showToast]);
+  }, [bellState, showToast, registerTokenSilently]);
 
   // Icono y estilo según el estado actual
   const renderIcon = () => {

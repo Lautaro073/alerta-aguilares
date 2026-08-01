@@ -40,6 +40,7 @@ export function AlertsView({ user, isAdmin, role }: ReportsViewProps) {
     actionLoading,
     updateReportStatus,
     updateReportArea,
+    updateReportPriority,
     archiveReport,
     restoreReport,
   } = useAdminReports({
@@ -88,7 +89,7 @@ export function AlertsView({ user, isAdmin, role }: ReportsViewProps) {
             },
           }}
         >
-          {renderAlertRows(reports, actionLoading, { updateReportStatus, updateReportArea, archiveReport, restoreReport }, role)}
+          {renderAlertRows(reports, actionLoading, { updateReportStatus, updateReportArea, updateReportPriority, archiveReport, restoreReport }, role)}
         </AdminDataTable>
         <aside className="admin-side-stack admin-alerts-side-stack">
           <SideCard title="Alertas entrantes" className="admin-incoming-card">

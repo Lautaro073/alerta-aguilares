@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { AuthUser } from '@/hooks/useAuth';
-import { Report, ReportAssignedArea, ReportStatus } from '@/types/report';
+import { Report, ReportAssignedArea, ReportPriority, ReportStatus } from '@/types/report';
 import { EMPTY_ADMIN_SUMMARY } from '../constants/admin.constants';
 import type { AdminReportFilters, AdminReportSummary } from '../types/admin.types';
 
@@ -86,6 +86,12 @@ function getAreaToastLabel(area: ReportAssignedArea | null) {
   if (area === 'lighting') return 'Alumbrado';
   if (area === 'environment') return 'Ambiente';
   return 'Sin derivar';
+}
+
+function getPriorityToastLabel(priority: ReportPriority) {
+  if (priority === 'high') return 'Alta';
+  if (priority === 'medium') return 'Media';
+  return 'Baja';
 }
 
 export function useAdminReports({
@@ -236,6 +242,43 @@ export function useAdminReports({
     }
   };
 
+  const updateReportPriority = async (reportId: string, priority: ReportPriority) => {
+    if (!user) return;
+
+    try {
+      setActionLoading((prev) => ({ ...prev, [reportId]: true }));
+      await toast.promise((async () => {
+        const token = await user.getIdToken();
+        const response = await fetch(`/api/reports/${reportId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ priority }),
+        });
+
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(result.error || 'Error al actualizar la prioridad.');
+        }
+
+        adminReportsCache.clear();
+        setReports((current) => current.map((report) => (
+          report.id === reportId ? { ...report, priority, updatedAt: new Date().toISOString() } : report
+        )));
+      })(), {
+        loading: 'Actualizando prioridad...',
+        success: `Prioridad actualizada a ${getPriorityToastLabel(priority)}.`,
+        error: (error) => error instanceof Error ? error.message : 'Ocurrio un error al actualizar la prioridad.',
+      });
+    } catch (error) {
+      console.error('Error al actualizar prioridad:', error);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [reportId]: false }));
+    }
+  };
+
   const archiveReport = async (reportId: string) => {
     if (!user) return;
 
@@ -316,6 +359,7 @@ export function useAdminReports({
     actionLoading,
     updateReportStatus,
     updateReportArea,
+    updateReportPriority,
     archiveReport,
     restoreReport,
   };

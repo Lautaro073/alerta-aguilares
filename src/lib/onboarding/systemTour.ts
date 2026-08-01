@@ -1,6 +1,7 @@
 'use client';
 
 import { driver, type DriveStep, type Driver } from 'driver.js';
+import { hasConsent } from '@/lib/consent';
 
 type TourRole = 'operator' | 'official' | 'admin';
 type TourSurface = 'map' | 'admin';
@@ -8,6 +9,38 @@ type FeatureTour = 'report-category' | 'report-location' | 'report-details' | 'a
 
 const TOUR_VERSION = 2;
 let activeTour: Driver | null = null;
+
+/**
+ * Recorridos ya mostrados en esta carga de página.
+ *
+ * Recordar entre visitas que alguien ya vio el tour es una preferencia opcional:
+ * si no aceptó las funciones opcionales en el banner, no se escribe nada en
+ * localStorage. Este Set evita el efecto colateral molesto de que, sin esa
+ * marca, el tour se repita al navegar dentro de la misma sesión.
+ */
+const shownThisSession = new Set<string>();
+
+function hasSeenTour(key: string) {
+  if (shownThisSession.has(key)) return true;
+  if (!hasConsent('preferences')) return false;
+
+  try {
+    return window.localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function markTourSeen(key: string) {
+  shownThisSession.add(key);
+  if (!hasConsent('preferences')) return;
+
+  try {
+    window.localStorage.setItem(key, 'seen');
+  } catch {
+    // Almacenamiento bloqueado: queda la marca en memoria para esta sesión.
+  }
+}
 
 const PUBLIC_MAP_STEPS: DriveStep[] = [
   { element: '[data-tour="map-header"]', popover: { title: 'Mapa de alertas', description: 'Desde esta barra accedes a los filtros, notificaciones y tu cuenta.' } },
@@ -117,8 +150,8 @@ export function startSystemTour(surface: TourSurface, audience?: string | null) 
 export function startSystemTourOnce(surface: TourSurface, audience?: string | null) {
   if (surface === 'admin' && !isTourRole(audience)) return;
   const key = `aguilares.tour.${surface}.${audience || 'guest'}.v${TOUR_VERSION}`;
-  if (window.localStorage.getItem(key)) return;
-  window.localStorage.setItem(key, 'seen');
+  if (hasSeenTour(key)) return;
+  markTourSeen(key);
   window.setTimeout(() => startSystemTour(surface, audience), 500);
 }
 
@@ -128,7 +161,7 @@ export function startFeatureTour(feature: FeatureTour) {
 
 export function startFeatureTourOnce(feature: FeatureTour, role?: string | null) {
   const key = `aguilares.tour.${feature}.${role || 'employee'}.v${TOUR_VERSION}`;
-  if (window.localStorage.getItem(key)) return;
-  window.localStorage.setItem(key, 'seen');
+  if (hasSeenTour(key)) return;
+  markTourSeen(key);
   window.setTimeout(() => startFeatureTour(feature), 350);
 }

@@ -1,5 +1,8 @@
 /**
- * Estado de consentimiento de almacenamiento local y tecnologías opcionales.
+ * Consentimiento granular para las tecnologías opcionales.
+ *
+ * Cada función opcional se acepta por separado: aceptar las notificaciones no
+ * implica aceptar que se recuerden preferencias de interfaz, ni al revés.
  *
  * Importante: el consentimiento NO alcanza a las tecnologías estrictamente
  * necesarias (sesión de Supabase, huella de navegador antiabuso). Esas se usan
@@ -7,19 +10,36 @@
  * límites de publicación. Ver la Política de Privacidad.
  */
 
+// El nombre de la clave quedó de la primera versión; el versionado real vive en
+// el campo `version` del contenido. Se reutiliza a propósito para no dejar
+// claves huérfanas en el navegador de quien ya había decidido.
 export const CONSENT_STORAGE_KEY = 'aguilares.consent.v1';
-export const CONSENT_VERSION = 1;
 
-export type ConsentChoice = 'all' | 'essential';
+// v2: se pasó de una única opción global a un flag por función. Los registros
+// de la versión anterior se descartan y se vuelve a preguntar, porque cambió el
+// alcance de lo que se estaba aceptando.
+export const CONSENT_VERSION = 2;
+
+export type OptionalFeature = 'notifications' | 'preferences';
 
 export interface ConsentState {
-  choice: ConsentChoice;
   version: number;
-  /** ISO 8601 */
-  decidedAt: string;
+  /** ISO 8601, o null si todavía no respondió el banner. */
+  decidedAt: string | null;
+  /** Notificaciones push: token del dispositivo registrado en el servidor. */
+  notifications: boolean;
+  /** Recordar entre visitas preferencias de interfaz (recorrido guiado). */
+  preferences: boolean;
 }
 
 const CONSENT_EVENT = 'aguilares:consent-change';
+
+const EMPTY_CONSENT: ConsentState = {
+  version: CONSENT_VERSION,
+  decidedAt: null,
+  notifications: false,
+  preferences: false,
+};
 
 function isBrowser() {
   return typeof window !== 'undefined';
@@ -30,15 +50,15 @@ function parseConsent(raw: string | null): ConsentState | null {
 
   try {
     const parsed = JSON.parse(raw) as Partial<ConsentState>;
-    if (parsed.choice !== 'all' && parsed.choice !== 'essential') return null;
     // Una versión distinta significa que cambió el alcance de lo que se acepta:
     // hay que volver a preguntar en lugar de dar por válida la decisión vieja.
     if (parsed.version !== CONSENT_VERSION) return null;
 
     return {
-      choice: parsed.choice,
       version: CONSENT_VERSION,
-      decidedAt: typeof parsed.decidedAt === 'string' ? parsed.decidedAt : new Date().toISOString(),
+      decidedAt: typeof parsed.decidedAt === 'string' ? parsed.decidedAt : null,
+      notifications: parsed.notifications === true,
+      preferences: parsed.preferences === true,
     };
   } catch {
     return null;
@@ -84,13 +104,7 @@ export function readConsent(): ConsentState | null {
   return cachedState;
 }
 
-export function saveConsent(choice: ConsentChoice): ConsentState {
-  const state: ConsentState = {
-    choice,
-    version: CONSENT_VERSION,
-    decidedAt: new Date().toISOString(),
-  };
-
+function persist(state: ConsentState): ConsentState {
   if (!isBrowser()) return state;
 
   const raw = JSON.stringify(state);
@@ -110,6 +124,44 @@ export function saveConsent(choice: ConsentChoice): ConsentState {
   return state;
 }
 
+/**
+ * Guarda la respuesta del banner. Marca la decisión como tomada, así que el
+ * banner deja de mostrarse aunque se hayan rechazado las dos funciones.
+ */
+export function saveConsent(choices: Record<OptionalFeature, boolean>): ConsentState {
+  return persist({
+    version: CONSENT_VERSION,
+    decidedAt: new Date().toISOString(),
+    notifications: choices.notifications,
+    preferences: choices.preferences,
+  });
+}
+
+/**
+ * Habilita UNA función porque la persona la pidió explícitamente desde su propio
+ * control (por ejemplo, tocando la campana de notificaciones).
+ *
+ * A propósito NO marca el banner como respondido ni toca la otra función: pedir
+ * las notificaciones no dice nada sobre si querés que se recuerden preferencias
+ * de interfaz, así que el banner sigue preguntando por lo que falta.
+ */
+export function grantFeature(feature: OptionalFeature): ConsentState {
+  const current = readConsent() ?? EMPTY_CONSENT;
+  if (current[feature]) return current;
+
+  return persist({ ...current, version: CONSENT_VERSION, [feature]: true });
+}
+
+/** ¿Está aceptada esta función en particular? */
+export function hasConsent(feature: OptionalFeature): boolean {
+  return readConsent()?.[feature] === true;
+}
+
+/** ¿Ya respondió el banner? Si no, hay que mostrarlo. */
+export function hasAnsweredBanner(): boolean {
+  return typeof readConsent()?.decidedAt === 'string';
+}
+
 /** Borra la decisión guardada para que el banner vuelva a mostrarse. */
 export function resetConsent() {
   if (!isBrowser()) return;
@@ -125,14 +177,6 @@ export function resetConsent() {
   }
 
   window.dispatchEvent(new CustomEvent(CONSENT_EVENT, { detail: null }));
-}
-
-/**
- * ¿Aceptó el usuario las funciones opcionales (notificaciones push y recordar
- * preferencias de interfaz)? Usar antes de activar cualquiera de ellas.
- */
-export function hasOptionalConsent(): boolean {
-  return readConsent()?.choice === 'all';
 }
 
 export function subscribeToConsent(callback: () => void): () => void {

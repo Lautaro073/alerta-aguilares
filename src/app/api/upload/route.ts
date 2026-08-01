@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cloudinary } from '@/lib/server/cloudinary';
 import { badRequest, serverError, forbidden } from '@/lib/server/response';
 import { verifyAppCheckToken } from '@/lib/server/appCheck';
+import { hasSensitiveImageContent } from '@/lib/server/imagePrivacy';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
     // Convertir File a Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const hasSensitiveContent = await hasSensitiveImageContent(buffer);
 
     interface CloudinaryUploadResult {
       secure_url: string;
@@ -47,6 +49,12 @@ export async function POST(request: NextRequest) {
         {
           folder: 'alertaaguilares',
           resource_type: 'image',
+          format: 'jpg',
+          transformation: [
+            { width: 2000, height: 2000, crop: 'limit' },
+            { effect: hasSensitiveContent ? 'blur:2000' : 'blur_faces:2000' },
+            { quality: 'auto:good' },
+          ],
         },
         (error, result) => {
           if (error) {
@@ -65,6 +73,7 @@ export async function POST(request: NextRequest) {
       success: true,
       url: uploadResult.secure_url,
       publicId: uploadResult.public_id,
+      sensitiveContentBlurred: hasSensitiveContent,
     });
   } catch (error) {
     return serverError('POST_UPLOAD_ROUTE', error);

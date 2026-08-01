@@ -63,6 +63,7 @@ export default function ReportDrawer({
   // Autenticación del vecino (para asociar autoría al reporte)
   const { user, profile } = useAuth();
   const { createReport, isSubmitting, apiError, clearApiError } = useCreateReport(user);
+  const canSetPriority = profile?.role === 'admin' || profile?.role === 'operator' || profile?.role === 'official';
   const isFixedTrafficLightReport = initialCategory === 'SEMAFORO' && initialStep === 3;
 
   useEffect(() => {
@@ -133,7 +134,7 @@ export default function ReportDrawer({
         title,
         description,
         images,
-        ...(priority ? { priority } : {}),
+        ...(canSetPriority && priority ? { priority } : {}),
       });
 
       // Éxito
@@ -288,6 +289,7 @@ export default function ReportDrawer({
                     title={title}
                     description={description}
                     images={images}
+                    canSetPriority={canSetPriority}
                     priority={priority}
                     onChangeTitle={setTitle}
                     onChangeDescription={setDescription}

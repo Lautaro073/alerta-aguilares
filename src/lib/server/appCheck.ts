@@ -24,13 +24,18 @@ export async function verifyAppCheckToken(request: NextRequest): Promise<boolean
   const appCheckToken = request.headers.get('X-Firebase-AppCheck');
 
   if (!appCheckToken) {
+    console.warn('[App Check] La peticion no incluyo el header X-Firebase-AppCheck.');
     return false;
   }
 
   try {
     await adminApp.appCheck().verifyToken(appCheckToken);
     return true;
-  } catch {
+  } catch (error) {
+    console.error(
+      '[App Check] Firebase rechazo el token:',
+      error instanceof Error ? error.message : error,
+    );
     return false;
   }
 }

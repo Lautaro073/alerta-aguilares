@@ -110,7 +110,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       setIsLoading(true);
       setError(null);
-      await signInWithGoogle(mode === 'register');
+      await signInWithGoogle();
     } catch (caughtError) {
       const rawMessage = caughtError instanceof Error ? caughtError.message : '';
       setError(rawMessage || 'No se pudo iniciar sesión con Google.');

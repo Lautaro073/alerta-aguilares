@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       resolveLocationLabel(lat, lng),
       supabaseAdmin
         .from('users')
-        .select('display_name, role, employee_status')
+        .select('display_name, role, employee_status, citizen_status')
         .eq('uid', userId)
         .maybeSingle(),
       supabaseAdmin
@@ -189,6 +189,10 @@ export async function POST(request: NextRequest) {
 
     if (userError) throw userError;
     if (categoryResult.error) throw categoryResult.error;
+
+    if (userRow?.role === 'user' && userRow.citizen_status === 'blocked') {
+      return forbidden('Tu cuenta esta bloqueada y no puede crear alertas.');
+    }
 
     const configuredPriority = categoryResult.data?.priority;
     const automaticPriority: ReportPriority = configuredPriority === 'high' || configuredPriority === 'medium' || configuredPriority === 'low'

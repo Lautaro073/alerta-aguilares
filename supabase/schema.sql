@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
   shift TEXT,
   employee_status TEXT CHECK (employee_status IS NULL OR employee_status IN ('pending', 'active', 'disabled')),
   employee_created_by TEXT REFERENCES users(uid) ON DELETE SET NULL,
+  citizen_status TEXT NOT NULL DEFAULT 'active' CHECK (citizen_status IN ('active', 'blocked')),
+  last_seen_at TIMESTAMPTZ,
   -- Consentimiento a los Términos y la Política de Privacidad (Ley 25.326, art. 5).
   -- NULL = cuenta anterior al registro de consentimiento.
   terms_accepted_at TIMESTAMPTZ,
@@ -153,6 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports (status, create
 CREATE INDEX IF NOT EXISTS idx_reports_category_status_created ON reports (category, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reports_duplicate_of_report_id ON reports (duplicate_of_report_id);
 CREATE INDEX IF NOT EXISTS idx_reports_location ON reports USING GIST (location);
+CREATE INDEX IF NOT EXISTS idx_users_role_citizen_status_created ON users (role, citizen_status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_report_confirmations_uid ON report_confirmations (uid);
 CREATE INDEX IF NOT EXISTS idx_report_events_report_created ON report_events (report_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_report_events_city_created ON report_events (city_id, created_at DESC);

@@ -5,7 +5,7 @@ import { hasConsent } from '@/lib/consent';
 
 type TourRole = 'operator' | 'official' | 'admin';
 type TourSurface = 'map' | 'admin';
-type FeatureTour = 'report-category' | 'report-location' | 'report-details' | 'admin-home' | 'admin-alerts' | 'admin-employees' | 'admin-stats' | 'admin-config';
+type FeatureTour = 'report-category' | 'report-location' | 'report-details' | 'admin-home' | 'admin-alerts' | 'admin-users' | 'admin-employees' | 'admin-stats' | 'admin-config';
 
 const TOUR_VERSION = 2;
 let activeTour: Driver | null = null;
@@ -65,6 +65,7 @@ const ADMIN_STEPS: Record<TourRole, DriveStep[]> = {
   admin: [
     { element: '.admin-brand', popover: { title: 'Panel municipal', description: 'Administra alertas, empleados y configuracion desde un solo lugar.' } },
     { element: '[data-tour="admin-nav-alerts"]', popover: { title: 'Alertas', description: 'Supervisa estados, derivaciones, duplicados e historial.' } },
+    { element: '[data-tour="admin-nav-users"]', popover: { title: 'Usuarios', description: 'Consulta ciudadanos registrados y controla su acceso.' } },
     { element: '[data-tour="admin-nav-employees"]', popover: { title: 'Empleados', description: 'Crea empleados y administra sus roles y accesos.' } },
     { element: '[data-tour="admin-nav-stats"]', popover: { title: 'Estadisticas', description: 'Analiza volumen, ubicacion y tiempos de resolucion.' } },
     { element: '[data-tour="admin-nav-config"]', popover: { title: 'Configuracion', description: 'Gestiona las categorias y areas municipales disponibles.' } },
@@ -99,6 +100,10 @@ const FEATURE_STEPS: Record<FeatureTour, DriveStep[]> = {
     { element: '.admin-title-row', popover: { title: 'Gestion de empleados', description: 'Crea empleados y controla su acceso al sistema.' } },
     { element: '.admin-metrics', popover: { title: 'Resumen del personal', description: 'Consulta empleados activos y distribucion de roles.' } },
     { element: '.admin-data-table', popover: { title: 'Personal municipal', description: 'Busca, edita o desactiva empleados desde esta tabla.' } },
+  ],
+  'admin-users': [
+    { element: '.admin-metrics', popover: { title: 'Resumen de usuarios', description: 'Consulta ciudadanos activos, nuevos y bloqueados.' } },
+    { element: '.admin-citizens-table', popover: { title: 'Usuarios registrados', description: 'Busca ciudadanos y bloquea o reactiva su acceso.' } },
   ],
   'admin-stats': [
     { element: '.admin-date-filter-button', popover: { title: 'Periodo de analisis', description: 'Cambia el rango de fechas de todos los indicadores.' } },

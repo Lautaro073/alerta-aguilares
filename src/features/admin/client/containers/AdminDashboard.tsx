@@ -15,6 +15,7 @@ import { ConfigView } from './ConfigView';
 import { EmployeesView, getHomeActivityRows } from './EmployeesView';
 import { StatsView } from './StatsView';
 import { AlertsView } from './AlertsView';
+import { UsersView } from './UsersView';
 import { ADMIN_HOME_ALERT_PAGE_SIZE } from '../constants/admin.constants';
 import {
   getHashView,
@@ -40,6 +41,7 @@ import {
   Map,
   Search,
   Settings,
+  Users,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -49,6 +51,7 @@ const PAGE_SIZE_STORAGE_KEY_HOME = 'admin.home.pageSize' as const;
 const ADMIN_VIEWS: Array<{ id: AdminView; label: string; icon: React.ReactNode }> = [
   { id: 'home', label: 'Inicio', icon: <Home size={18} /> },
   { id: 'alerts', label: 'Alertas', icon: <Bell size={18} /> },
+  { id: 'users', label: 'Usuarios', icon: <Users size={18} /> },
   { id: 'employees', label: 'Empleados', icon: <Badge size={18} /> },
   { id: 'stats', label: 'Estadísticas', icon: <BarChart3 size={18} /> },
   { id: 'config', label: 'Configuración', icon: <Settings size={18} /> },
@@ -86,7 +89,7 @@ export function AdminDashboard() {
         </div>
 
         <nav className="admin-nav">
-          {ADMIN_VIEWS.filter((item) => (item.id !== 'employees' && item.id !== 'config') || canManageSystem).map((item) => (
+          {ADMIN_VIEWS.filter((item) => !['users', 'employees', 'config'].includes(item.id) || canManageSystem).map((item) => (
             <AdminTooltipButton key={item.id} label={item.label} side="right">
               <button
                 data-tour={`admin-nav-${item.id}`}
@@ -123,7 +126,7 @@ export function AdminDashboard() {
       <header className="admin-stitch-topbar">
         <div className="admin-search">
           <Search size={17} />
-          <input placeholder="Buscar alertas, calles o empleados..." type="text" />
+          <input placeholder="Buscar alertas, usuarios o empleados..." type="text" />
         </div>
         <div className="admin-top-actions">
           <AdminNotifications user={user} />
@@ -134,6 +137,8 @@ export function AdminDashboard() {
       <main className="admin-stitch-main">
         {activeView === 'home' && <HomeView user={user} isAdmin={isAdmin} role={profile?.role ?? null} />}
         {activeView === 'alerts' && <AlertsView user={user} isAdmin={isAdmin} role={profile?.role ?? null} />}
+        {activeView === 'users' && canManageSystem && <UsersView />}
+        {activeView === 'users' && !canManageSystem && <HomeView user={user} isAdmin={isAdmin} role={profile?.role ?? null} />}
         {activeView === 'employees' && canManageSystem && <EmployeesView />}
         {activeView === 'employees' && !canManageSystem && <HomeView user={user} isAdmin={isAdmin} role={profile?.role ?? null} />}
         {activeView === 'stats' && <StatsView user={user} isAdmin={isAdmin} role={profile?.role ?? null} />}

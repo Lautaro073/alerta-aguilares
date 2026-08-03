@@ -122,6 +122,13 @@ export async function POST(request: NextRequest) {
       throw fetchError;
     }
 
+    if (existing?.role === 'user' && existing.citizen_status === 'blocked') {
+      return Response.json(
+        { success: false, error: 'Tu cuenta fue bloqueada. Contacta al administrador.' },
+        { status: 403 }
+      );
+    }
+
     const displayName =
       typeof body.displayName === 'string' && body.displayName.trim().length > 0
         ? body.displayName.trim().slice(0, 80)
@@ -133,6 +140,7 @@ export async function POST(request: NextRequest) {
       email: existing?.email || decodedToken.email || null,
       photo_url: existing?.photo_url || decodedToken.picture || null,
       role: existing?.role || 'user',
+      last_seen_at: new Date().toISOString(),
     };
 
     // Consentimiento a los Términos y la Política de Privacidad (Ley 25.326, art. 5).

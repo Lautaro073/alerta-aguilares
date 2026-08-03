@@ -3262,6 +3262,11 @@ button.admin-status {
 .admin-dot.ok { background: var(--admin-secondary); }
 .admin-dot.busy { background: var(--admin-error); }
 
+.admin-citizen-status-column {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
 .admin-employee-status-column {
   min-width: 120px;
   white-space: nowrap;

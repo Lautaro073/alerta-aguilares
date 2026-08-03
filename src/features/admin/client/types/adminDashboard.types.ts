@@ -2,7 +2,7 @@ import type { AuthUser } from '@/hooks/useAuth';
 import type { AdminReportListItem } from './admin.types';
 import type { EmployeeRole } from '../../shared/employeeOptions';
 
-export type AdminView = 'home' | 'alerts' | 'employees' | 'stats' | 'config';
+export type AdminView = 'home' | 'alerts' | 'users' | 'employees' | 'stats' | 'config';
 export type ReportsViewProps = { user: AuthUser | null; isAdmin: boolean; role?: EmployeeRole | 'user' | null };
 
 export type AdminProfile = {
@@ -75,4 +75,4 @@ export type EmployeeActionHandlers = {
   setEmployeeStatus: (employee: AdminEmployee, disabled: boolean) => Promise<void>;
 };
 
-export type PageSizeStorageKey = 'admin.home.pageSize' | 'admin.alerts.pageSize' | 'admin.employees.pageSize';
+export type PageSizeStorageKey = 'admin.home.pageSize' | 'admin.alerts.pageSize' | 'admin.users.pageSize' | 'admin.employees.pageSize';

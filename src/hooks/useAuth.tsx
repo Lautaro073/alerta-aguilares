@@ -30,7 +30,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
-  signInWithGoogle: (acceptedTerms?: boolean) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (
     email: string,
@@ -159,10 +159,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async (acceptedTerms = false) => {
-    // Hay que dejar la marca ANTES del redirect: la pestaña se va al proveedor
-    // de identidad y vuelve sin nada del estado de React.
-    if (acceptedTerms) markPendingTermsAcceptance();
+  const signInWithGoogle = async () => {
+    // El acceso con Google informa que implica aceptar los documentos legales.
+    // La marca se consume al volver del proveedor y solo se persiste una vez.
+    markPendingTermsAcceptance();
 
     const { error } = await supabaseBrowser.auth.signInWithOAuth({
       provider: 'google',

@@ -83,6 +83,7 @@ export default function RootLayout({
     <html
       lang="es-AR"
       className={`${outfit.variable} ${plusJakartaSans.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="font-jakarta min-h-dvh bg-background text-foreground flex flex-col">
         <TooltipProvider>

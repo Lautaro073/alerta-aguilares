@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Filter, Shield, Sparkles } from 'lucide-react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import NotificationBell from '@/components/layout/NotificationBell';
@@ -21,6 +21,97 @@ export default function MapControls({
   isCategorySelected,
 }: MapControlsProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const dragRef = useRef({
+    active: false,
+    dragged: false,
+    lastX: 0,
+    lastTime: 0,
+    velocity: 0,
+    animationFrame: 0,
+  });
+
+  useEffect(() => () => cancelAnimationFrame(dragRef.current.animationFrame), []);
+
+  const handleFilterWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
+    if (container.scrollWidth <= container.clientWidth) return;
+
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (delta === 0) return;
+
+    event.preventDefault();
+    cancelAnimationFrame(dragRef.current.animationFrame);
+    dragRef.current.velocity = 0;
+    container.scrollLeft += delta * 1.6;
+  };
+
+  const handleFilterPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    cancelAnimationFrame(dragRef.current.animationFrame);
+    dragRef.current.velocity = 0;
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+
+    dragRef.current = {
+      active: true,
+      dragged: false,
+      lastX: event.clientX,
+      lastTime: event.timeStamp,
+      velocity: 0,
+      animationFrame: 0,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleFilterPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag.active) return;
+
+    const distance = event.clientX - drag.lastX;
+    if (Math.abs(distance) > 2) drag.dragged = true;
+    if (!drag.dragged) return;
+
+    event.preventDefault();
+    const elapsed = Math.max(1, event.timeStamp - drag.lastTime);
+    drag.velocity = drag.velocity * 0.55 + (-distance / elapsed) * 0.45;
+    drag.lastX = event.clientX;
+    drag.lastTime = event.timeStamp;
+    event.currentTarget.scrollLeft -= distance;
+  };
+
+  const handleFilterPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    drag.active = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    const shouldGlide = event.type !== 'pointercancel'
+      && drag.dragged
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(() => { drag.dragged = false; }, 0);
+    if (!shouldGlide) return;
+
+    const container = event.currentTarget;
+    let previousTime = performance.now();
+    const glide = (time: number) => {
+      const elapsed = Math.min(32, time - previousTime);
+      previousTime = time;
+      const previousLeft = container.scrollLeft;
+      container.scrollLeft += dragRef.current.velocity * elapsed;
+      dragRef.current.velocity *= Math.pow(0.94, elapsed / 16.67);
+
+      if (Math.abs(dragRef.current.velocity) > 0.02 && container.scrollLeft !== previousLeft) {
+        dragRef.current.animationFrame = requestAnimationFrame(glide);
+      }
+    };
+    dragRef.current.animationFrame = requestAnimationFrame(glide);
+  };
+
+  const handleFilterClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!dragRef.current.dragged) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragRef.current.dragged = false;
+  };
 
   return (
     <div className="absolute top-4 left-0 right-0 z-[1000] px-4 pointer-events-none">
@@ -75,7 +166,15 @@ export default function MapControls({
               Todos
             </button>
             <div className="w-px h-6 bg-border shrink-0" />
-            <div className="flex-1 flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-1 px-1 h-full items-center">
+            <div
+              className="flex-1 flex gap-1.5 overflow-x-auto no-scrollbar overscroll-x-contain touch-pan-x py-1 px-1 h-full items-center cursor-grab active:cursor-grabbing"
+              onWheel={handleFilterWheel}
+              onPointerDown={handleFilterPointerDown}
+              onPointerMove={handleFilterPointerMove}
+              onPointerUp={handleFilterPointerUp}
+              onPointerCancel={handleFilterPointerUp}
+              onClickCapture={handleFilterClickCapture}
+            >
               {Object.values(CATEGORIES).map((category) => {
                 const active = isCategorySelected(category.id);
 

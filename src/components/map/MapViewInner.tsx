@@ -85,6 +85,20 @@ function MapContent() {
     setSelectedReport(report);
   }, []);
 
+  const handleReportDetailClose = useCallback(() => {
+    setSelectedReport(null);
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('reportId')) {
+      url.searchParams.delete('reportId');
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${url.pathname}${url.search}${url.hash}`
+      );
+    }
+  }, []);
+
   const handleCreateReportClick = useCallback(() => {
     if (authLoading) {
       toast.info('Estamos verificando tu sesion. Intenta nuevamente en un momento.');
@@ -113,6 +127,37 @@ function MapContent() {
 
     return () => window.clearTimeout(resumeTimer);
   }, [authLoading, pendingReport, user]);
+
+  useEffect(() => {
+    const reportId = new URLSearchParams(window.location.search).get('reportId')?.trim();
+    if (!reportId) return;
+
+    const controller = new AbortController();
+
+    void fetch(`/api/reports/${encodeURIComponent(reportId)}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const result = await response.json().catch(() => null) as {
+          success?: boolean;
+          data?: Report;
+          error?: string;
+        } | null;
+
+        if (!response.ok || !result?.data) {
+          throw new Error(result?.error || 'No se pudo abrir la alerta.');
+        }
+
+        setSelectedReport(result.data);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        toast.error(error instanceof Error ? error.message : 'No se pudo abrir la alerta.');
+      });
+
+    return () => controller.abort();
+  }, []);
 
   const allReports = reports as Report[];
 
@@ -161,7 +206,7 @@ function MapContent() {
 
       <ReportDetailDrawer
         report={selectedReport}
-        onClose={() => setSelectedReport(null)}
+        onClose={handleReportDetailClose}
       />
 
       <ReportDrawer

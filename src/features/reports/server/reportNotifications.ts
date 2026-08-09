@@ -3,11 +3,30 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { Report } from '@/types/report';
 
-/**
- * Sends push notifications to subscribed devices after a new report is created.
- * This is intentionally fire-and-forget from the route handler.
- */
-export async function triggerReportPushNotifications(report: Report) {
+type ReportNotificationEvent = 'created' | 'resolved';
+
+function getNotificationContent(report: Report, event: ReportNotificationEvent) {
+  const categoryLabel = CATEGORIES[report.category as keyof typeof CATEGORIES]?.label || report.category;
+
+  if (event === 'resolved') {
+    return {
+      title: `Alerta solucionada: ${categoryLabel}`,
+      body: `${report.title} fue marcada como resuelta.`,
+    };
+  }
+
+  return {
+    title: `Nueva alerta: ${categoryLabel}`,
+    body: report.title,
+  };
+}
+
+function getWebPushTopic(reportId: string, event: ReportNotificationEvent) {
+  const compactId = reportId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 22);
+  return `${event === 'resolved' ? 'r' : 'c'}-${compactId}`;
+}
+
+async function triggerReportNotification(report: Report, event: ReportNotificationEvent) {
   try {
     const { data, error } = await supabaseAdmin
       .from('fcm_tokens')
@@ -26,26 +45,27 @@ export async function triggerReportPushNotifications(report: Report) {
       return;
     }
 
-    const categoryLabel = CATEGORIES[report.category as keyof typeof CATEGORIES]?.label || report.category;
-    const title = `Nueva Alerta: ${categoryLabel}`;
-    const body = report.title;
+    const { title, body } = getNotificationContent(report, event);
     const url = `/?reportId=${report.id}`;
-    const topic = `report-${report.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 25)}`;
+    const notificationId = `report:${report.id}:${event}`;
+    const tag = `report-${report.id}-${event}`;
 
     const response = await adminMessaging.sendEachForMulticast({
       tokens,
       data: {
         reportId: report.id,
+        notificationId,
+        event,
         title,
         body,
         url,
-        tag: `report-${report.id}`,
+        tag,
       },
       webpush: {
         headers: {
           Urgency: 'high',
           TTL: '300',
-          Topic: topic,
+          Topic: getWebPushTopic(report.id, event),
         },
       },
     });
@@ -80,6 +100,14 @@ export async function triggerReportPushNotifications(report: Report) {
 
     console.log(`[FCM] Exito: ${response.successCount}, Fallos: ${response.failureCount}`);
   } catch (error) {
-    console.error('[FCM] Error en triggerReportPushNotifications:', error);
+    console.error(`[FCM] Error enviando notificacion ${event}:`, error);
   }
+}
+
+export function triggerReportPushNotifications(report: Report) {
+  return triggerReportNotification(report, 'created');
+}
+
+export function triggerResolvedReportPushNotifications(report: Report) {
+  return triggerReportNotification(report, 'resolved');
 }

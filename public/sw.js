@@ -1,5 +1,5 @@
 const CACHE_NAME = 'ciudadalerta-v1';
-const NOTIFICATION_DEDUPE_CACHE = 'notification-dedupe-v1';
+const NOTIFICATION_DEDUPE_CACHE = 'notification-dedupe-v2';
 const NOTIFICATION_DEDUPE_TTL_MS = 24 * 60 * 60 * 1000;
 const ASSETS_TO_CACHE = [
   '/',
@@ -93,8 +93,9 @@ async function handlePushNotification(eventData) {
     const payload = eventData.json();
     const data = payload.data || payload;
     const reportId = data.reportId;
+    const notificationId = data.notificationId || reportId;
 
-    if (reportId && await wasNotificationShown(reportId)) return;
+    if (notificationId && await wasNotificationShown(notificationId)) return;
 
     await self.registration.showNotification(data.title || 'CiudadAlerta', {
       body: data.body || 'Nuevo reporte registrado en Aguilares.',
@@ -108,7 +109,7 @@ async function handlePushNotification(eventData) {
       vibrate: [100, 50, 100],
     });
 
-    if (reportId) await rememberShownNotification(reportId);
+    if (notificationId) await rememberShownNotification(notificationId);
   } catch {
     const text = eventData.text();
     await self.registration.showNotification('CiudadAlerta', {
@@ -121,13 +122,13 @@ async function handlePushNotification(eventData) {
   }
 }
 
-function getNotificationDedupeRequest(reportId) {
-  return new Request(`${self.location.origin}/__notification_dedupe__/${encodeURIComponent(reportId)}`);
+function getNotificationDedupeRequest(notificationId) {
+  return new Request(`${self.location.origin}/__notification_dedupe__/${encodeURIComponent(notificationId)}`);
 }
 
-async function wasNotificationShown(reportId) {
+async function wasNotificationShown(notificationId) {
   const cache = await caches.open(NOTIFICATION_DEDUPE_CACHE);
-  const response = await cache.match(getNotificationDedupeRequest(reportId));
+  const response = await cache.match(getNotificationDedupeRequest(notificationId));
   if (!response) return false;
 
   const shownAt = Number(await response.text());
@@ -135,14 +136,14 @@ async function wasNotificationShown(reportId) {
     return true;
   }
 
-  await cache.delete(getNotificationDedupeRequest(reportId));
+  await cache.delete(getNotificationDedupeRequest(notificationId));
   return false;
 }
 
-async function rememberShownNotification(reportId) {
+async function rememberShownNotification(notificationId) {
   const cache = await caches.open(NOTIFICATION_DEDUPE_CACHE);
   await cache.put(
-    getNotificationDedupeRequest(reportId),
+    getNotificationDedupeRequest(notificationId),
     new Response(String(Date.now()), { headers: { 'Content-Type': 'text/plain' } })
   );
 }
@@ -153,19 +154,29 @@ self.addEventListener('notificationclick', (event) => {
   const urlToOpen = event.notification.data?.url || '/';
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Check if there is already a window open with this application scope
-      for (let i = 0; i < windowClients.length; i++) {
-        const client = windowClients[i];
-        if (client.url.includes(urlToOpen) && 'focus' in client) {
-          return client.focus();
+    (async () => {
+      const targetUrl = new URL(urlToOpen, self.location.origin).href;
+      const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+      for (const client of windowClients) {
+        if (new URL(client.url).origin !== self.location.origin) continue;
+
+        try {
+          const navigatedClient = 'navigate' in client
+            ? await client.navigate(targetUrl)
+            : client;
+
+          if (navigatedClient && 'focus' in navigatedClient) {
+            return navigatedClient.focus();
+          }
+        } catch {
+          // Try another client or open a new window below.
         }
       }
-      
-      // If no window is open, open a new one
+
       if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
+        return self.clients.openWindow(targetUrl);
       }
-    })
+    })()
   );
 });

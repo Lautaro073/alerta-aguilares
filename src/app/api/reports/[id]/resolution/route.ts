@@ -4,6 +4,8 @@ import { createReportEvent } from '@/lib/server/reportEvents';
 import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
 import { serverError } from '@/lib/server/response';
 import { supabaseAdmin } from '@/lib/supabase/server';
+import { getReportById } from '@/features/reports/server/reportQueries';
+import { triggerResolvedReportPushNotifications } from '@/features/reports/server/reportNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +78,11 @@ export async function POST(
 
     if (body.resolved) {
       await touchPublicReportsFeed({ cityId: report.city_id, reportId });
+
+      const resolvedReport = await getReportById(reportId);
+      if (resolvedReport) {
+        await triggerResolvedReportPushNotifications(resolvedReport);
+      }
     }
 
     return Response.json({ success: true, resolved: body.resolved, status: nextStatus });

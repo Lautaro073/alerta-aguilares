@@ -5,6 +5,8 @@ import { touchPublicReportsFeed } from '@/lib/server/publicFeed';
 import { createReportEvent } from '@/lib/server/reportEvents';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { DEFAULT_CITY_ID } from '@/lib/constants/city';
+import { getPublicReportCacheHeaders, getPublicReportById, getReportById } from '@/features/reports/server/reportQueries';
+import { triggerResolvedReportPushNotifications } from '@/features/reports/server/reportNotifications';
 import type { ReportAssignedArea, ReportPriority, ReportStatus } from '@/types/report';
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +14,30 @@ export const dynamic = 'force-dynamic';
 const REPORT_STATUSES: ReportStatus[] = ['PENDING', 'VERIFYING', 'IN_PROGRESS', 'RESOLVED', 'DISMISSED', 'DUPLICATE'];
 const ASSIGNED_AREAS: ReportAssignedArea[] = ['traffic', 'public_works', 'lighting', 'environment'];
 const REPORT_PRIORITIES: ReportPriority[] = ['high', 'medium', 'low'];
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: reportId } = await params;
+    const report = await getPublicReportById(reportId);
+
+    if (!report) {
+      return Response.json(
+        { success: false, error: 'La alerta no existe.' },
+        { status: 404, headers: getPublicReportCacheHeaders() }
+      );
+    }
+
+    return Response.json(
+      { success: true, data: report },
+      { status: 200, headers: getPublicReportCacheHeaders() }
+    );
+  } catch (error) {
+    return serverError('GET_PUBLIC_REPORT_DETAIL', error);
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -121,6 +147,8 @@ export async function PATCH(
       throw updateError;
     }
 
+    const becameResolved = status === 'RESOLVED' && reportRow.status !== 'RESOLVED';
+
     if (status) {
       await createReportEvent({
         reportId,
@@ -151,6 +179,13 @@ export async function PATCH(
     }).catch((err) => {
       console.error('[PATCH /api/reports/[id]] No se pudo actualizar el feed publico:', err);
     });
+
+    if (becameResolved) {
+      const resolvedReport = await getReportById(reportId);
+      if (resolvedReport) {
+        await triggerResolvedReportPushNotifications(resolvedReport);
+      }
+    }
 
     return Response.json(
       {

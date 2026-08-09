@@ -413,3 +413,19 @@ export async function getReportById(reportId: string): Promise<Report | null> {
 
   return data ? mapSupabaseReportToReport(data as SupabaseReportRow) : null;
 }
+
+export async function getPublicReportById(reportId: string): Promise<Report | null> {
+  const { data, error } = await supabaseAdmin
+    .from('reports')
+    .select('*')
+    .eq('id', reportId)
+    .eq('city_id', DEFAULT_CITY_ID)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? mapSupabaseReportToReport(data as SupabaseReportRow) : null;
+}

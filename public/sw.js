@@ -1,4 +1,6 @@
 const CACHE_NAME = 'ciudadalerta-v1';
+const NOTIFICATION_DEDUPE_CACHE = 'notification-dedupe-v1';
+const NOTIFICATION_DEDUPE_TTL_MS = 24 * 60 * 60 * 1000;
 const ASSETS_TO_CACHE = [
   '/',
   '/favicon.ico',
@@ -24,7 +26,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
+          if (cache !== CACHE_NAME && cache !== NOTIFICATION_DEDUPE_CACHE) {
             console.log('💚 [PWA SW] Clearing old cache:', cache);
             return caches.delete(cache);
           }
@@ -81,39 +83,69 @@ self.addEventListener('fetch', (event) => {
 
 // Native Push Notification Receiver Event
 self.addEventListener('push', (event) => {
-  if (event.data) {
-    try {
-      const payload = event.data.json();
-      const options = {
-        body: payload.body || 'Nuevo reporte registrado en Aguilares.',
-        icon: payload.icon || '/icon-192.png',
-        badge: payload.badge || '/icon-192-maskable.png',
-        data: {
-          url: payload.data?.url || '/',
-        },
-        tag: payload.tag || 'nuevo-reporte',
-        vibrate: [100, 50, 100],
-      };
+  if (!event.data) return;
 
-      event.waitUntil(
-        self.registration.showNotification(payload.title || 'CiudadAlerta', options)
-      );
-    } catch {
-      // Fallback in case the notification payload is plain text instead of JSON
-      const text = event.data.text();
-      event.waitUntil(
-        self.registration.showNotification('CiudadAlerta', {
-          body: text || 'Nuevo reporte registrado en Aguilares.',
-          icon: '/icon-192.png',
-          badge: '/icon-192-maskable.png',
-          data: {
-            url: '/',
-          },
-        })
-      );
-    }
-  }
+  event.waitUntil(handlePushNotification(event.data));
 });
+
+async function handlePushNotification(eventData) {
+  try {
+    const payload = eventData.json();
+    const data = payload.data || payload;
+    const reportId = data.reportId;
+
+    if (reportId && await wasNotificationShown(reportId)) return;
+
+    await self.registration.showNotification(data.title || 'CiudadAlerta', {
+      body: data.body || 'Nuevo reporte registrado en Aguilares.',
+      icon: '/icon-192.png',
+      badge: '/icon-192-maskable.png',
+      data: {
+        url: data.url || '/',
+      },
+      tag: data.tag || (reportId ? `report-${reportId}` : 'nuevo-reporte'),
+      renotify: false,
+      vibrate: [100, 50, 100],
+    });
+
+    if (reportId) await rememberShownNotification(reportId);
+  } catch {
+    const text = eventData.text();
+    await self.registration.showNotification('CiudadAlerta', {
+      body: text || 'Nuevo reporte registrado en Aguilares.',
+      icon: '/icon-192.png',
+      badge: '/icon-192-maskable.png',
+      data: { url: '/' },
+      tag: 'nuevo-reporte',
+    });
+  }
+}
+
+function getNotificationDedupeRequest(reportId) {
+  return new Request(`${self.location.origin}/__notification_dedupe__/${encodeURIComponent(reportId)}`);
+}
+
+async function wasNotificationShown(reportId) {
+  const cache = await caches.open(NOTIFICATION_DEDUPE_CACHE);
+  const response = await cache.match(getNotificationDedupeRequest(reportId));
+  if (!response) return false;
+
+  const shownAt = Number(await response.text());
+  if (Number.isFinite(shownAt) && Date.now() - shownAt <= NOTIFICATION_DEDUPE_TTL_MS) {
+    return true;
+  }
+
+  await cache.delete(getNotificationDedupeRequest(reportId));
+  return false;
+}
+
+async function rememberShownNotification(reportId) {
+  const cache = await caches.open(NOTIFICATION_DEDUPE_CACHE);
+  await cache.put(
+    getNotificationDedupeRequest(reportId),
+    new Response(String(Date.now()), { headers: { 'Content-Type': 'text/plain' } })
+  );
+}
 
 // Deep-link Redirection Click Event
 self.addEventListener('notificationclick', (event) => {

@@ -30,27 +30,22 @@ export async function triggerReportPushNotifications(report: Report) {
     const title = `Nueva Alerta: ${categoryLabel}`;
     const body = report.title;
     const url = `/?reportId=${report.id}`;
+    const topic = `report-${report.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 25)}`;
 
     const response = await adminMessaging.sendEachForMulticast({
       tokens,
       data: {
+        reportId: report.id,
         title,
         body,
         url,
+        tag: `report-${report.id}`,
       },
       webpush: {
         headers: {
           Urgency: 'high',
-        },
-        notification: {
-          title,
-          body,
-          icon: '/icon-192.png',
-          badge: '/icon-192-maskable.png',
-          tag: 'nuevo-reporte',
-          data: {
-            url,
-          },
+          TTL: '300',
+          Topic: topic,
         },
       },
     });

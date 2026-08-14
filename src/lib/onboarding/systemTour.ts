@@ -8,7 +8,9 @@ type TourSurface = 'map' | 'admin';
 type FeatureTour = 'report-category' | 'report-location' | 'report-details' | 'admin-home' | 'admin-alerts' | 'admin-users' | 'admin-employees' | 'admin-stats' | 'admin-config';
 
 const TOUR_VERSION = 2;
+const TOUR_STATE_EVENT = 'aguilares:tour-state-change';
 let activeTour: Driver | null = null;
+let scheduledTours = 0;
 
 /**
  * Recorridos ya mostrados en esta carga de página.
@@ -19,6 +21,40 @@ let activeTour: Driver | null = null;
  * marca, el tour se repita al navegar dentro de la misma sesión.
  */
 const shownThisSession = new Set<string>();
+
+function isBrowser() {
+  return typeof window !== 'undefined';
+}
+
+function emitTourState() {
+  if (!isBrowser()) return;
+  window.dispatchEvent(new CustomEvent<boolean>(TOUR_STATE_EVENT, { detail: isTourBlocking() }));
+}
+
+function scheduleTour(startTour: () => void, delayMs: number) {
+  scheduledTours += 1;
+  emitTourState();
+
+  window.setTimeout(() => {
+    try {
+      startTour();
+    } finally {
+      scheduledTours = Math.max(0, scheduledTours - 1);
+      emitTourState();
+    }
+  }, delayMs);
+}
+
+export function isTourBlocking() {
+  return scheduledTours > 0 || activeTour !== null;
+}
+
+export function subscribeToTourState(callback: () => void) {
+  if (!isBrowser()) return () => {};
+
+  window.addEventListener(TOUR_STATE_EVENT, callback);
+  return () => window.removeEventListener(TOUR_STATE_EVENT, callback);
+}
 
 function hasSeenTour(key: string) {
   if (shownThisSession.has(key)) return true;
@@ -138,8 +174,12 @@ function runTour(steps: DriveStep[], doneBtnText: string) {
     smoothScroll: true,
     stagePadding: 8,
     stageRadius: 8,
-    onDestroyed: () => { activeTour = null; },
+    onDestroyed: () => {
+      activeTour = null;
+      emitTourState();
+    },
   });
+  emitTourState();
   activeTour.drive();
 }
 
@@ -157,7 +197,7 @@ export function startSystemTourOnce(surface: TourSurface, audience?: string | nu
   const key = `aguilares.tour.${surface}.${audience || 'guest'}.v${TOUR_VERSION}`;
   if (hasSeenTour(key)) return;
   markTourSeen(key);
-  window.setTimeout(() => startSystemTour(surface, audience), 500);
+  scheduleTour(() => startSystemTour(surface, audience), 500);
 }
 
 export function startFeatureTour(feature: FeatureTour) {
@@ -168,5 +208,5 @@ export function startFeatureTourOnce(feature: FeatureTour, role?: string | null)
   const key = `aguilares.tour.${feature}.${role || 'employee'}.v${TOUR_VERSION}`;
   if (hasSeenTour(key)) return;
   markTourSeen(key);
-  window.setTimeout(() => startFeatureTour(feature), 350);
+  scheduleTour(() => startFeatureTour(feature), 350);
 }
